@@ -10,6 +10,7 @@ import {
   type Policy,
   type PolicyContext,
 } from "./policy-engine.js";
+import { MaxSearchResultTokensPolicy } from "./policies/max-search-tokens.js";
 
 const sessionTokens = new SessionTokenCache(
   parseInt(process.env.FOUR_TBG_MAX_SESSIONS || "1000", 10),
@@ -19,7 +20,7 @@ const sessionTokens = new SessionTokenCache(
 export const FourTokenBudgetGuardPlugin: Plugin = async (_ctx) => {
   const config = loadConfig();
   const policyConfig = loadPolicyConfig();
-  const policies: Policy[] = [];
+  const policies: Policy[] = [new MaxSearchResultTokensPolicy()];
 
   if (!config.enabled) {
     return {};

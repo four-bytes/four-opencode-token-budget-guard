@@ -1,5 +1,10 @@
 # Project Change History
 
+## v0.4.0 — 2026-05-31
+
+### Added
+- max_search_result_tokens Policy (#12): warns/enforces when message has >50 lines (search output pattern)
+
 ## v0.3.0 — 2026-05-31
 
 ### Added
