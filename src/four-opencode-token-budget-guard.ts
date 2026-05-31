@@ -2,8 +2,12 @@ import type { Plugin } from "@opencode-ai/plugin";
 import { loadConfig } from "./config.js";
 import { writeDiaryEntry } from "./diary.js";
 import { estimateMessageTokens } from "./tokens.js";
+import { SessionTokenCache } from "./session-cache.js";
 
-const sessionTokens = new Map<string, number>();
+const sessionTokens = new SessionTokenCache(
+  parseInt(process.env.FOUR_TBG_MAX_SESSIONS || "1000", 10),
+  parseInt(process.env.FOUR_TBG_SESSION_TTL_MS || String(60 * 60 * 1000), 10),
+);
 
 export const FourTokenBudgetGuardPlugin: Plugin = async (_ctx) => {
   const config = loadConfig();
@@ -18,8 +22,7 @@ export const FourTokenBudgetGuardPlugin: Plugin = async (_ctx) => {
       const message = (input as { message?: unknown }).message;
 
       const tokensApprox = estimateMessageTokens(message);
-      const cumulative = (sessionTokens.get(sessionID) ?? 0) + tokensApprox;
-      sessionTokens.set(sessionID, cumulative);
+      const cumulative = sessionTokens.add(sessionID, tokensApprox);
 
       const msgRole =
         (message as { info?: { role?: string } } | undefined)?.info?.role ??

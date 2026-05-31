@@ -1,5 +1,15 @@
 # Project Change History
 
+## v0.1.2 — 2026-05-31
+
+### Fixed
+- sessionTokens Map wuchs unbegrenzt — durch `SessionTokenCache` mit LRU-Cap (default 1000) + TTL (default 1h) ersetzt
+- Neue ENV-Variablen: `FOUR_TBG_MAX_SESSIONS` (default 1000), `FOUR_TBG_SESSION_TTL_MS` (default 3600000)
+
+### Added
+- `src/session-cache.ts` mit `SessionTokenCache`-Klasse
+- Tests in `test/session-cache.test.ts`
+
 ## v0.1.1 — 2026-05-31
 
 ### Fixed

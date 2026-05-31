@@ -25,6 +25,8 @@ Via ENV-Variablen (alle optional):
 |---|---|---|
 | `FOUR_TBG_SOFT_LIMIT` | `50000` | Soft-Warning ab kumulierten Tokens/Session |
 | `FOUR_TBG_HARD_LIMIT` | `100000` | Hard-Warning (Cancel ist TODO) |
+| `FOUR_TBG_MAX_SESSIONS` | `1000` | LRU-Cap — max aktive Sessions im Cache |
+| `FOUR_TBG_SESSION_TTL_MS` | `3600000` | TTL einer Session-Eintrag (1h) |
 | `FOUR_TBG_ENABLED` | `true` | `false` deaktiviert das Plugin komplett |
 | `XDG_DATA_HOME` | `~/.local/share` | Basis für Diary-Pfad |
 
