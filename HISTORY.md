@@ -1,5 +1,10 @@
 # Project Change History
 
+## v0.4.0 — 2026-05-31
+
+### Added
+- max_planner_tokens Policy (#11): warns/enforces when assistant message exceeds FOUR_TBG_MAX_PLANNER_TOKENS (default 3000)
+
 ## v0.3.0 — 2026-05-31
 
 ### Added
