@@ -1,5 +1,18 @@
 # Project Change History
 
+## v0.2.0 — 2026-05-31
+
+### Added
+- `TokenBudgetExceededError` Custom Error-Type (`src/errors.ts`)
+- Echte Hard-Cancel-Mechanismus: throw bei Überschreitung von `FOUR_TBG_HARD_LIMIT`
+- Diary-Eintrag VOR throw (Audit-Trail bleibt erhalten)
+
+### Removed
+- TODO-Kommentar zu Hard-Cancel — implementiert via throw (Phase-1-Research bestätigt)
+
+### Migration
+- Bestehende User mit `FOUR_TBG_HARD_LIMIT=∞` (oder default 100k): Verhalten ändert sich — Request schlägt jetzt fehl bei Überschreitung. Setze `FOUR_TBG_ENABLED=false` zum Deaktivieren oder erhöhe Hard-Limit.
+
 ## v0.1.2 — 2026-05-31
 
 ### Fixed

@@ -3,6 +3,7 @@ import { loadConfig } from "./config.js";
 import { writeDiaryEntry } from "./diary.js";
 import { estimateMessageTokens } from "./tokens.js";
 import { SessionTokenCache } from "./session-cache.js";
+import { TokenBudgetExceededError } from "./errors.js";
 
 const sessionTokens = new SessionTokenCache(
   parseInt(process.env.FOUR_TBG_MAX_SESSIONS || "1000", 10),
@@ -29,15 +30,42 @@ export const FourTokenBudgetGuardPlugin: Plugin = async (_ctx) => {
         "unknown";
 
       if (cumulative >= config.softLimit) {
-        const level = cumulative >= config.hardLimit ? "HARD" : "SOFT";
+        const isHard = cumulative >= config.hardLimit;
+        const level = isHard ? "HARD" : "SOFT";
         // eslint-disable-next-line no-console
         console.warn(
           `[four-tbg] ${level} limit exceeded — session=${sessionID} tokens=${cumulative} (soft=${config.softLimit}, hard=${config.hardLimit})`,
         );
-        // TODO: actual hard-cancel mechanism — opencode plugin-API for request cancellation
-        // currently unclear. See follow-up issue.
+
+        // Diary BEFORE throw (audit trail)
+        try {
+          await writeDiaryEntry(config.diaryDir, {
+            ts: new Date().toISOString(),
+            sessionID,
+            msgRole,
+            tokensApprox,
+            cumulative,
+            softLimit: config.softLimit,
+            hardLimit: config.hardLimit,
+          });
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.error("[four-tbg] diary write failed:", err);
+        }
+
+        if (isHard) {
+          throw new TokenBudgetExceededError(
+            sessionID,
+            cumulative,
+            config.hardLimit,
+          );
+        }
+
+        // Soft limit: log + diary logged above, return
+        return;
       }
 
+      // Below soft limit: diary only
       try {
         await writeDiaryEntry(config.diaryDir, {
           ts: new Date().toISOString(),
