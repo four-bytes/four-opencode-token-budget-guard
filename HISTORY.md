@@ -1,5 +1,14 @@
 # Project Change History
 
+## v0.3.0 — 2026-05-31
+
+### Added
+- Policy-Engine Architektur (Wave P4b, Issue #9)
+- src/policy-engine.ts: Policy-Interface, PolicyContext, runPolicyLoop, Config
+- Policy-Loop im chat.message Hook (nach Soft/Hard-Check)
+- FOUR_TBG_POLICIES env (comma-separated, Format: name=warn|enforce|off)
+- 4 Policy-Implementierungen folgen in #10-#13
+
 ## v0.2.0 — 2026-05-31
 
 ### Added
