@@ -1,5 +1,11 @@
 # Project Change History
 
+## v0.1.1 — 2026-05-31
+
+### Fixed
+- Source-Datei `src/index.ts` → `src/four-opencode-token-budget-guard.ts` (opencode-Plugin-Naming-Konvention, siehe rag/memory)
+- package.json `main`, `types`, `exports`, build-script entsprechend angepasst
+
 ## v0.1.0 — 2026-05-31
 
 ### Added
