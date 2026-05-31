@@ -3,7 +3,11 @@
 ## v0.4.0 — 2026-05-31
 
 ### Added
+- max_start_tokens Policy (#10): warns when cumulative session tokens exceed FOUR_TBG_MAX_START_TOKENS (default 25000)
 - max_planner_tokens Policy (#11): warns/enforces when assistant message exceeds FOUR_TBG_MAX_PLANNER_TOKENS (default 3000)
+- max_search_result_tokens Policy (#12): warns/enforces when message has excessive lines (search output pattern)
+- grep_mode Policy (#13): warns/enforces when grep is used without --include flag
+- src/policies/ directory with 4 Policy-Implementierungen
 
 ## v0.3.0 — 2026-05-31
 
@@ -12,7 +16,6 @@
 - src/policy-engine.ts: Policy-Interface, PolicyContext, runPolicyLoop, Config
 - Policy-Loop im chat.message Hook (nach Soft/Hard-Check)
 - FOUR_TBG_POLICIES env (comma-separated, Format: name=warn|enforce|off)
-- 4 Policy-Implementierungen folgen in #10-#13
 
 ## v0.2.0 — 2026-05-31
 
