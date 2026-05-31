@@ -1,5 +1,10 @@
 # Project Change History
 
+## v0.5.0 — 2026-05-31
+
+### Added
+- Policy-Engine Integration Tests (Issue #14): 8 Cases (config, empty loop, all 4 policies, edge cases)
+
 ## v0.4.0 — 2026-05-31
 
 ### Added

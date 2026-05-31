@@ -1,6 +1,6 @@
 {
   "name": "@four-bytes/four-opencode-token-budget-guard",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "opencode plugin: pre-request token budget guard with soft/hard limits and diary stats",
   "type": "module",
   "main": "dist/four-opencode-token-budget-guard.js",
