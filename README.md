@@ -24,7 +24,7 @@ Via ENV-Variablen (alle optional):
 | Variable | Default | Beschreibung |
 |---|---|---|
 | `FOUR_TBG_SOFT_LIMIT` | `50000` | Soft-Warning ab kumulierten Tokens/Session |
-| `FOUR_TBG_HARD_LIMIT` | `100000` | Hard-Warning (Cancel ist TODO) |
+| `FOUR_TBG_HARD_LIMIT` | `100000` | Hard-Limit — throw `TokenBudgetExceededError` bei Überschreitung |
 | `FOUR_TBG_MAX_SESSIONS` | `1000` | LRU-Cap — max aktive Sessions im Cache |
 | `FOUR_TBG_SESSION_TTL_MS` | `3600000` | TTL einer Session-Eintrag (1h) |
 | `FOUR_TBG_ENABLED` | `true` | `false` deaktiviert das Plugin komplett |
@@ -42,11 +42,9 @@ Sample-Entry:
 {"ts":"2026-05-31T12:34:56.789Z","sessionID":"ses_abc","msgRole":"user","tokensApprox":234,"cumulative":1234,"softLimit":50000,"hardLimit":100000}
 ```
 
-## Limitationen v0.1.0
+## Limitationen v0.2.0
 
 - Token-Schätzung ist Heuristik (chars/4), keine echte Tokenisierung
-- Hard-Cancel ist nur Logging — echte Request-Cancellation hängt von opencode-API ab (Follow-up-Issue geplant)
-- Keine Tests (Sprint 2)
 
 ## License
 
