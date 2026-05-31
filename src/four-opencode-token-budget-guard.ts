@@ -10,7 +10,7 @@ import {
   type Policy,
   type PolicyContext,
 } from "./policy-engine.js";
-import { GrepModePolicy } from "./policies/grep-mode.js";
+import { MaxStartTokensPolicy } from "./policies/max-start-tokens.js";
 
 const sessionTokens = new SessionTokenCache(
   parseInt(process.env.FOUR_TBG_MAX_SESSIONS || "1000", 10),
@@ -20,7 +20,7 @@ const sessionTokens = new SessionTokenCache(
 export const FourTokenBudgetGuardPlugin: Plugin = async (_ctx) => {
   const config = loadConfig();
   const policyConfig = loadPolicyConfig();
-  const policies: Policy[] = [new GrepModePolicy()];
+  const policies: Policy[] = [new MaxStartTokensPolicy()];
 
   if (!config.enabled) {
     return {};
