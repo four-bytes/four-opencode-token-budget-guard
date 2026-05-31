@@ -4,6 +4,12 @@ import { writeDiaryEntry } from "./diary.js";
 import { estimateMessageTokens } from "./tokens.js";
 import { SessionTokenCache } from "./session-cache.js";
 import { TokenBudgetExceededError } from "./errors.js";
+import {
+  runPolicyLoop,
+  loadPolicyConfig,
+  type Policy,
+  type PolicyContext,
+} from "./policy-engine.js";
 
 const sessionTokens = new SessionTokenCache(
   parseInt(process.env.FOUR_TBG_MAX_SESSIONS || "1000", 10),
@@ -12,6 +18,8 @@ const sessionTokens = new SessionTokenCache(
 
 export const FourTokenBudgetGuardPlugin: Plugin = async (_ctx) => {
   const config = loadConfig();
+  const policyConfig = loadPolicyConfig();
+  const policies: Policy[] = [];
 
   if (!config.enabled) {
     return {};
@@ -63,6 +71,38 @@ export const FourTokenBudgetGuardPlugin: Plugin = async (_ctx) => {
 
         // Soft limit: log + diary logged above, return
         return;
+      }
+
+      // Policy-Loop (after soft/hard check)
+      const pCtx: PolicyContext = {
+        sessionID,
+        cumulative,
+        message,
+      };
+
+      const policyResults = await runPolicyLoop(policies, pCtx, policyConfig);
+
+      for (const result of policyResults) {
+        if (result.level === "enforce") {
+          // Write diary BEFORE throw (audit trail)
+          await writeDiaryEntry(config.diaryDir, {
+            ts: new Date().toISOString(),
+            sessionID,
+            msgRole: "system",
+            tokensApprox: cumulative,
+            cumulative,
+            softLimit: config.softLimit,
+            hardLimit: config.hardLimit,
+          });
+          throw new TokenBudgetExceededError(
+            sessionID,
+            cumulative,
+            config.hardLimit,
+          );
+        }
+        if (result.level === "warn") {
+          console.warn(`[four-tbg] POLICY WARN: ${result.name} — ${result.message}`);
+        }
       }
 
       // Below soft limit: diary only
