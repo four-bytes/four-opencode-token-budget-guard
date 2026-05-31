@@ -1,5 +1,10 @@
 # Project Change History
 
+## v0.4.0 — 2026-05-31
+
+### Added
+- grep_mode Policy (#13): warns/enforces when grep is used without --include flag (PAT-003)
+
 ## v0.3.0 — 2026-05-31
 
 ### Added
