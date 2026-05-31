@@ -3,17 +3,17 @@
   "version": "0.1.0",
   "description": "opencode plugin: pre-request token budget guard with soft/hard limits and diary stats",
   "type": "module",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "dist/four-opencode-token-budget-guard.js",
+  "types": "dist/four-opencode-token-budget-guard.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "import": "./dist/four-opencode-token-budget-guard.js",
+      "types": "./dist/four-opencode-token-budget-guard.d.ts"
     }
   },
   "scripts": {
-    "build": "bun build src/index.ts --outdir dist --target bun --format esm",
-    "dev": "bun build src/index.ts --outdir dist --target bun --format esm --watch",
+    "build": "bun build src/four-opencode-token-budget-guard.ts --outdir dist --target bun --format esm",
+    "dev": "bun build src/four-opencode-token-budget-guard.ts --outdir dist --target bun --format esm --watch",
     "typecheck": "bunx tsc --noEmit"
   },
   "keywords": ["opencode", "plugin", "tokens", "budget", "cost"],
