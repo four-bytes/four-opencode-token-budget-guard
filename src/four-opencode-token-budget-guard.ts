@@ -4,6 +4,7 @@ import { writeDiaryEntry } from "./diary.js";
 import { estimateMessageTokens } from "./tokens.js";
 import { SessionTokenCache } from "./session-cache.js";
 import { TokenBudgetExceededError } from "./errors.js";
+import { logDebugEvent } from "./debug-logger.js";
 import {
   runPolicyLoop,
   loadPolicyConfig,
@@ -68,12 +69,33 @@ export const FourTokenBudgetGuardPlugin: Plugin = async (_ctx) => {
         }
 
         if (isHard) {
+          logDebugEvent("limit.exceeded", {
+            limitType: "hard",
+            sessionID,
+            cumulative,
+            softLimit: config.softLimit,
+            hardLimit: config.hardLimit,
+            tokensApprox,
+            msgRole,
+            action: "throw",
+          });
           throw new TokenBudgetExceededError(
             sessionID,
             cumulative,
             config.hardLimit,
           );
         }
+
+        logDebugEvent("limit.exceeded", {
+          limitType: "soft",
+          sessionID,
+          cumulative,
+          softLimit: config.softLimit,
+          hardLimit: config.hardLimit,
+          tokensApprox,
+          msgRole,
+          action: "return",
+        });
 
         // Soft limit: log + diary logged above, return
         return;
@@ -104,6 +126,15 @@ export const FourTokenBudgetGuardPlugin: Plugin = async (_ctx) => {
             softLimit: config.softLimit,
             hardLimit: config.hardLimit,
           });
+          logDebugEvent("policy.enforce", {
+            policyName: result.name,
+            message: result.message,
+            sessionID,
+            cumulative,
+            softLimit: config.softLimit,
+            hardLimit: config.hardLimit,
+            action: "throw",
+          });
           throw new TokenBudgetExceededError(
             sessionID,
             cumulative,
@@ -112,6 +143,15 @@ export const FourTokenBudgetGuardPlugin: Plugin = async (_ctx) => {
         }
         if (result.level === "warn") {
           console.warn(`[four-tbg] POLICY WARN: ${result.name} — ${result.message}`);
+          logDebugEvent("policy.warn", {
+            policyName: result.name,
+            message: result.message,
+            tokens: result.tokens,
+            limit: result.limit,
+            sessionID,
+            cumulative,
+            action: "warn",
+          });
         }
       }
 
@@ -130,6 +170,16 @@ export const FourTokenBudgetGuardPlugin: Plugin = async (_ctx) => {
         // eslint-disable-next-line no-console
         console.error("[four-tbg] diary write failed:", err);
       }
+
+      logDebugEvent("limit.below", {
+        sessionID,
+        cumulative,
+        softLimit: config.softLimit,
+        hardLimit: config.hardLimit,
+        tokensApprox,
+        msgRole,
+        action: "continue",
+      });
     },
   };
 };
