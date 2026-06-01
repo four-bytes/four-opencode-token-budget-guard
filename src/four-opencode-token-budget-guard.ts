@@ -46,6 +46,11 @@ export const FourTokenBudgetGuardPlugin: Plugin = async (_ctx) => {
           `[four-tbg] ${level} limit exceeded — session=${sessionID} tokens=${cumulative} (soft=${config.softLimit}, hard=${config.hardLimit})`,
         );
 
+        // Signal curator to compact via env
+        if (config.compactionTrigger) {
+          process.env.CC_COMPACTION_TRIGGER = "true";
+        }
+
         // Diary BEFORE throw (audit trail)
         try {
           await writeDiaryEntry(config.diaryDir, {
@@ -85,6 +90,10 @@ export const FourTokenBudgetGuardPlugin: Plugin = async (_ctx) => {
 
       for (const result of policyResults) {
         if (result.level === "enforce") {
+          // Signal curator to compact via env
+          if (config.compactionTrigger) {
+            process.env.CC_COMPACTION_TRIGGER = "true";
+          }
           // Write diary BEFORE throw (audit trail)
           await writeDiaryEntry(config.diaryDir, {
             ts: new Date().toISOString(),

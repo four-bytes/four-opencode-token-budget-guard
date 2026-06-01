@@ -1,5 +1,15 @@
 # Project Change History
 
+## v0.6.0 — 2026-06-01
+
+### Added
+- Compaction-Trigger (#21): Signal an curator via `CC_COMPACTION_TRIGGER=true` env bei Soft/Hard-Limit
+- Config: `FOUR_TBG_COMPACTION_TRIGGER` (default true) zum Opt-out
+- Trigger auch bei Policy-Enforcement (grep/planner/search-Verstoß)
+
+### Changed
+- `src/config.ts`: `compactionTrigger` boolean Config-Feld
+
 ## v0.5.0 — 2026-05-31
 
 ### Added

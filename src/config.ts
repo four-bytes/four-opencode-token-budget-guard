@@ -3,6 +3,8 @@ export interface Config {
   hardLimit: number;
   diaryDir: string;
   enabled: boolean;
+  /** Signal curator to compact session when limits are hit */
+  compactionTrigger: boolean;
 }
 
 function envInt(key: string, fallback: number): number {
@@ -25,5 +27,6 @@ export function loadConfig(): Config {
     hardLimit: envInt("FOUR_TBG_HARD_LIMIT", 100_000),
     diaryDir: `${xdgDataHome()}/four-opencode-token-budget-guard/diary`,
     enabled: process.env.FOUR_TBG_ENABLED !== "false",
+    compactionTrigger: process.env.FOUR_TBG_COMPACTION_TRIGGER !== "false",
   };
 }
