@@ -1,5 +1,10 @@
 # Project Change History
 
+## [Unreleased]
+
+### Changed
+- @opencode-ai/plugin: 1.15.10 → 1.15.13
+
 ## v0.6.0 — 2026-06-01
 
 ### Added
