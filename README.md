@@ -1,8 +1,8 @@
 # @four-bytes/four-opencode-token-budget-guard
 
-opencode-Plugin: zählt pro Chat-Message die geschätzten Token (chars/4 Heuristik), warnt bei Soft-Limit, dokumentiert beim Hard-Limit, schreibt JSONL-Diary pro Tag.
+opencode-Plugin: counts estimated tokens per chat message (chars/4 heuristic), warns at soft-limit, enforces at hard-limit, writes JSONL diary per day.
 
-**Status:** Beta v0.1.0 — Hello-World Sprint 1 (siehe [four-bytes/opencode-plugins](https://github.com/four-bytes/opencode-plugins)).
+**Status:** Beta v0.1.0 — Hello-World Sprint 1 (see [four-bytes/opencode-plugins](https://github.com/four-bytes/opencode-plugins)).
 
 ## Installation
 
@@ -17,22 +17,22 @@ In `opencode.json`:
 }
 ```
 
-## Konfiguration
+## Configuration
 
-Via ENV-Variablen (alle optional):
+Via ENV variables (all optional):
 
-| Variable | Default | Beschreibung |
+| Variable | Default | Description |
 |---|---|---|
-| `FOUR_TBG_SOFT_LIMIT` | `50000` | Soft-Warning ab kumulierten Tokens/Session |
-| `FOUR_TBG_HARD_LIMIT` | `100000` | Hard-Limit — throw `TokenBudgetExceededError` bei Überschreitung |
-| `FOUR_TBG_MAX_SESSIONS` | `1000` | LRU-Cap — max aktive Sessions im Cache |
-| `FOUR_TBG_SESSION_TTL_MS` | `3600000` | TTL einer Session-Eintrag (1h) |
-| `FOUR_TBG_ENABLED` | `true` | `false` deaktiviert das Plugin komplett |
-| `XDG_DATA_HOME` | `~/.local/share` | Basis für Diary-Pfad |
+| `FOUR_TBG_SOFT_LIMIT` | `50000` | Soft-warning at cumulative tokens/session |
+| `FOUR_TBG_HARD_LIMIT` | `100000` | Hard-limit — throws `TokenBudgetExceededError` on exceed |
+| `FOUR_TBG_MAX_SESSIONS` | `1000` | LRU cap — max active sessions in cache |
+| `FOUR_TBG_SESSION_TTL_MS` | `3600000` | TTL of a session entry (1h) |
+| `FOUR_TBG_ENABLED` | `true` | `false` disables the plugin completely |
+| `XDG_DATA_HOME` | `~/.local/share` | Base path for diary directory |
 
 ## Diary
 
-Pro Tag eine JSONL-Datei unter:
+One JSONL file per day at:
 ```
 ${XDG_DATA_HOME:-~/.local/share}/four-opencode-token-budget-guard/diary/YYYY-MM-DD.jsonl
 ```
@@ -42,9 +42,9 @@ Sample-Entry:
 {"ts":"2026-05-31T12:34:56.789Z","sessionID":"ses_abc","msgRole":"user","tokensApprox":234,"cumulative":1234,"softLimit":50000,"hardLimit":100000}
 ```
 
-## Limitationen v0.2.0
+## Limitations v0.2.0
 
-- Token-Schätzung ist Heuristik (chars/4), keine echte Tokenisierung
+- Token estimation is heuristic (chars/4), not real tokenization
 
 ## License
 

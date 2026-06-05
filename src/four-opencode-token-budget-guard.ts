@@ -22,6 +22,33 @@ export const FourTokenBudgetGuardPlugin: Plugin = async (_ctx) => {
   const config = loadConfig();
   const policyConfig = loadPolicyConfig();
   const policies: Policy[] = [new MaxStartTokensPolicy()];
+  let lastDiaryTokenCount = 0;
+  let lastWarnTime = 0;
+
+  async function maybeWriteDiary(
+    reason: "below_soft" | "limit_exceeded" | "policy_enforce",
+    sessionID: string,
+    cumulative: number,
+    tokensApprox: number,
+    msgRole: string,
+  ): Promise<void> {
+    if (reason === "below_soft" && cumulative - lastDiaryTokenCount < 5000) return;
+    if (reason === "below_soft") lastDiaryTokenCount = cumulative;
+    try {
+      await writeDiaryEntry(config.diaryDir, {
+        ts: new Date().toISOString(),
+        sessionID,
+        msgRole,
+        tokensApprox,
+        cumulative,
+        softLimit: config.softLimit,
+        hardLimit: config.hardLimit,
+      });
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error("[four-tbg] diary write failed:", err);
+    }
+  }
 
   if (!config.enabled) {
     return {};
@@ -48,10 +75,13 @@ export const FourTokenBudgetGuardPlugin: Plugin = async (_ctx) => {
         if (cumulative >= config.softLimit) {
           const isHard = cumulative >= config.hardLimit;
           const level = isHard ? "HARD" : "SOFT";
-          // eslint-disable-next-line no-console
-          console.warn(
-            `[four-tbg] ${level} limit exceeded — session=${sessionID} tokens=${cumulative} (soft=${config.softLimit}, hard=${config.hardLimit})`,
-          );
+          if (Date.now() - lastWarnTime >= 60000) {
+            lastWarnTime = Date.now();
+            // eslint-disable-next-line no-console
+            console.warn(
+              `[four-tbg] ${level} limit exceeded — session=${sessionID} tokens=${cumulative} (soft=${config.softLimit}, hard=${config.hardLimit})`,
+            );
+          }
 
           // Signal curator to compact via env
           if (config.compactionTrigger) {
@@ -59,20 +89,7 @@ export const FourTokenBudgetGuardPlugin: Plugin = async (_ctx) => {
           }
 
           // Diary BEFORE throw (audit trail)
-          try {
-            await writeDiaryEntry(config.diaryDir, {
-              ts: new Date().toISOString(),
-              sessionID,
-              msgRole,
-              tokensApprox,
-              cumulative,
-              softLimit: config.softLimit,
-              hardLimit: config.hardLimit,
-            });
-          } catch (err) {
-            // eslint-disable-next-line no-console
-            console.error("[four-tbg] diary write failed:", err);
-          }
+          await maybeWriteDiary("limit_exceeded", sessionID, cumulative, tokensApprox, msgRole);
 
           if (isHard) {
             logDebugEvent("limit.exceeded", {
@@ -122,15 +139,7 @@ export const FourTokenBudgetGuardPlugin: Plugin = async (_ctx) => {
               process.env.CC_COMPACTION_TRIGGER = "true";
             }
             // Write diary BEFORE throw (audit trail)
-            await writeDiaryEntry(config.diaryDir, {
-              ts: new Date().toISOString(),
-              sessionID,
-              msgRole: "system",
-              tokensApprox: cumulative,
-              cumulative,
-              softLimit: config.softLimit,
-              hardLimit: config.hardLimit,
-            });
+            await maybeWriteDiary("policy_enforce", sessionID, cumulative, cumulative, "system");
             logDebugEvent("policy.enforce", {
               policyName: result.name,
               message: result.message,
@@ -160,21 +169,8 @@ export const FourTokenBudgetGuardPlugin: Plugin = async (_ctx) => {
           }
         }
 
-        // Below soft limit: diary only
-        try {
-          await writeDiaryEntry(config.diaryDir, {
-            ts: new Date().toISOString(),
-            sessionID,
-            msgRole,
-            tokensApprox,
-            cumulative,
-            softLimit: config.softLimit,
-            hardLimit: config.hardLimit,
-          });
-        } catch (err) {
-          // eslint-disable-next-line no-console
-          console.error("[four-tbg] diary write failed:", err);
-        }
+        // Below soft limit: diary only (throttled)
+        await maybeWriteDiary("below_soft", sessionID, cumulative, tokensApprox, msgRole);
 
         logDebugEvent("limit.below", {
           sessionID,
@@ -186,7 +182,7 @@ export const FourTokenBudgetGuardPlugin: Plugin = async (_ctx) => {
           action: "continue",
         });
       } catch {
-        // silent — NIE werfen aus event-hook
+        // silent — NEVER throw from event-hook
       }
     },
   };

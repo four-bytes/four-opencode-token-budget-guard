@@ -15,8 +15,6 @@ export interface Policy {
 export interface PolicyContext {
   sessionID: string;
   cumulative: number;
-  message?: unknown;
-  systemContent?: string;
 }
 
 export interface PolicyConfig {

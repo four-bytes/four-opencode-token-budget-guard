@@ -1,13 +1,24 @@
 # four-opencode-token-budget-guard — AGENTS.md
 
 ## Project Overview
-opencode-Plugin: Token-Budget-Guard mit Soft/Hard-Warning + JSONL-Diary pro Session.
+opencode-Plugin: Token-Budget-Guard with Soft/Hard-Warning + JSONL-Diary per Session.
 
 ## Tech Stack
 - Runtime: Bun (ESM)
 - Language: TypeScript 5.7 (strict)
-- Plugin-API: `@opencode-ai/plugin` ^1.15.10
-- Dependencies: zero runtime deps (außer @opencode-ai/plugin)
+- Plugin-API: `@opencode-ai/plugin` ^1.15.13
+- Dependencies: zero runtime deps (except @opencode-ai/plugin)
+
+## Git Workflow (MANDATORY)
+Every task, no exceptions:
+```
+gh issue create → git checkout -b feat|fix|chore|docs/GH-{nr}-slug → commit → git push → gh pr create --fill → Review → gh pr merge --squash --delete-branch
+```
+- Branch naming: `feat/GH-{nr}-description` | `fix/GH-{nr}-description` | `chore/GH-{nr}-description`
+- Conventional Commits: `feat:|fix:|chore:|docs:|refactor:` with `(#NR)` suffix
+- PR body must contain `Closes #NR`
+- No worktrees — work directly on feature branches from `main`
+- After merge: `git checkout main && git pull --ff-only && git branch -D <branch>`
 
 ## Development
 | Command | Description |
@@ -15,23 +26,26 @@ opencode-Plugin: Token-Budget-Guard mit Soft/Hard-Warning + JSONL-Diary pro Sess
 | `bun install` | Install deps |
 | `bun run build` | Build to dist/ |
 | `bun run typecheck` | Type check |
+| `bun test` | Run test suite |
 
 ## Architecture
 | File | Purpose |
 |---|---|
-| src/index.ts | Plugin-Entry, registriert chat.message Hook |
-| src/config.ts | ENV-basierter Config-Loader |
-| src/tokens.ts | Token-Estimator (chars/4) |
-| src/diary.ts | JSONL-Diary-Writer (XDG-Pfad) |
+| src/four-opencode-token-budget-guard.ts | Plugin entry, registers chat.message Hook |
+| src/config.ts | ENV-based Config-Loader |
+| src/tokens.ts | Token-Estimator (chars/4 heuristic) |
+| src/diary.ts | JSONL-Diary-Writer (XDG-Path) |
+| src/session-cache.ts | LRU Session-Cache with TTL |
+| src/errors.ts | TokenBudgetExceededError |
+| src/policy-engine.ts | Policy-Interface + runPolicyLoop |
+| src/policies/max-start-tokens.ts | Early-Warning for cumulative Session-Tokens |
 
 ## Conventions
 - LF, Umlaute (ä/ö/ü/ß)
-- Conventional Commits mit (#NR)
 - Pure ESM (`type: "module"`)
 - Strict TypeScript, no `any`
-- Zero deps wo möglich
+- Zero deps where possible
 
-## Known Limitations
-- Token-Estimation heuristisch
-- Hard-Cancel TODO (opencode-API)
-- Keine Tests v0.1.0
+## References
+- OpenCode source: `~/four-opencode-plugins/opencode-src` — reference for Plugin-API internals and hook types
+
