@@ -34,18 +34,27 @@ function TokenMeterView(_props: { api: TuiPluginApi; sessionId: string }) {
   let hideTimer: ReturnType<typeof setTimeout> | null = null;
 
   onMount(async () => {
-    try {
-      bus = await BusTui.connect(3000);
-      setBusStatus("connected");
+    let retries = 5;
+    while (retries > 0) {
+      try {
+        bus = await BusTui.connect(5000);
+        setBusStatus("connected");
 
-      unsub = bus.subscribe("tbg/+/status", (msg) => {
-        setStatus(msg.payload as TokenStatus);
-      });
-    } catch {
-      setBusStatus("disconnected");
-      // Hide after 3 seconds if no bus
-      hideTimer = setTimeout(() => setHidden(true), 3000);
+        unsub = bus.subscribe("tbg/+/status", (msg) => {
+          setStatus(msg.payload as TokenStatus);
+        });
+        return; // success — stop retrying
+      } catch {
+        retries--;
+        if (retries > 0) {
+          setBusStatus("connecting");
+          await new Promise((r) => setTimeout(r, 2000)); // wait 2s between retries
+        }
+      }
     }
+    // All retries exhausted
+    setBusStatus("disconnected");
+    hideTimer = setTimeout(() => setHidden(true), 3000);
   });
 
   onCleanup(() => {
