@@ -1,51 +1,56 @@
 # @four-bytes/four-opencode-token-budget-guard
 
-opencode-Plugin: counts estimated tokens per chat message (chars/4 heuristic), warns at soft-limit, enforces at hard-limit, writes JSONL diary per day.
+> Token budget guard for opencode — soft/hard limits, policy engine, and usage diary.
 
-**Status:** Beta v0.1.0 — Hello-World Sprint 1 (see [four-bytes/opencode-plugins](https://github.com/four-bytes/opencode-plugins)).
+[![npm](https://img.shields.io/npm/v/@four-bytes/four-opencode-token-budget-guard)](https://www.npmjs.com/package/@four-bytes/four-opencode-token-budget-guard)
+[![license](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
+[![bun](https://img.shields.io/badge/runtime-bun-orange)](https://bun.sh)
 
-## Installation
+## Why?
+
+LLM sessions can silently burn through token budgets. Token Budget Guard counts estimated tokens before each request and enforces limits: soft warnings at configurable thresholds, hard cancellation at limit. Includes a token usage diary for session statistics.
+
+## Quickstart
 
 ```bash
-bun add -d @four-bytes/four-opencode-token-budget-guard
+opencode plugin @four-bytes/four-opencode-token-budget-guard -g
 ```
 
-In `opencode.json`:
-```json
-{
-  "plugins": ["@four-bytes/four-opencode-token-budget-guard"]
-}
-```
+Restart opencode.
 
 ## Configuration
 
-Via ENV variables (all optional):
+Environment variables:
 
 | Variable | Default | Description |
-|---|---|---|
-| `FOUR_TBG_SOFT_LIMIT` | `50000` | Soft-warning at cumulative tokens/session |
-| `FOUR_TBG_HARD_LIMIT` | `100000` | Hard-limit — throws `TokenBudgetExceededError` on exceed |
-| `FOUR_TBG_MAX_SESSIONS` | `1000` | LRU cap — max active sessions in cache |
-| `FOUR_TBG_SESSION_TTL_MS` | `3600000` | TTL of a session entry (1h) |
-| `FOUR_TBG_ENABLED` | `true` | `false` disables the plugin completely |
-| `XDG_DATA_HOME` | `~/.local/share` | Base path for diary directory |
+|----------|---------|-------------|
+| `FOUR_TBG_SOFT_LIMIT` | `8000` | Warning threshold (tokens) |
+| `FOUR_TBG_HARD_LIMIT` | `16000` | Cancellation limit (tokens) |
+| `FOUR_TBG_ENABLED` | `true` | Enable/disable |
 
-## Diary
+## Policy Engine
 
-One JSONL file per day at:
+4 policies configurable per session:
+
+- **Warn** — Log warning when approaching soft limit
+- **Compaction** — Trigger context compaction at soft limit
+- **Hard Stop** — Cancel request at hard limit
+- **Diary** — Record token statistics to diary file
+
+## Contributing
+
+PRs welcome! See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+```bash
+bun install
+bun run build
+bun test
 ```
-${XDG_DATA_HOME:-~/.local/share}/four-opencode-token-budget-guard/diary/YYYY-MM-DD.jsonl
-```
-
-Sample-Entry:
-```json
-{"ts":"2026-05-31T12:34:56.789Z","sessionID":"ses_abc","msgRole":"user","tokensApprox":234,"cumulative":1234,"softLimit":50000,"hardLimit":100000}
-```
-
-## Limitations v0.2.0
-
-- Token estimation is heuristic (chars/4), not real tokenization
 
 ## License
 
-Apache-2.0 — Copyright 2025 Four Bytes
+Apache-2.0 — see [LICENSE](LICENSE)
+
+---
+
+> If this plugin saves you tokens, consider leaving a ⭐ on [GitHub](https://github.com/four-bytes/four-opencode-token-budget-guard).
