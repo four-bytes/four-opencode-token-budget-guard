@@ -6,12 +6,24 @@ export class BusPublisher {
   private bus: BusClient | null = null;
   private lastPublish = 0;
   private publishInterval = 500; // ms — debounce
+  private reconnecting = false;
 
   async init(): Promise<void> {
     try {
+      // eslint-disable-next-line no-console
+      console.log("[BusPublisher] connecting to plugin bus on port 3000...");
       this.bus = await BusClient.connect(3000);
-    } catch {
-      // Bus not available — operate without it
+      // eslint-disable-next-line no-console
+      console.log(
+        "[BusPublisher] connected — activePort=",
+        this.bus.activePort,
+      );
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        "[BusPublisher] bus not available:",
+        (err as Error).message,
+      );
       this.bus = null;
     }
   }
@@ -22,10 +34,22 @@ export class BusPublisher {
     cache: SessionTokenCache,
     config: Config
   ): Promise<void> {
-    if (!this.bus) return;
+    if (!this.bus) {
+      // eslint-disable-next-line no-console
+      console.log(
+        `[BusPublisher] skipping publish — no bus connection (session=${sessionID})`,
+      );
+      return;
+    }
 
     const now = Date.now();
-    if (now - this.lastPublish < this.publishInterval) return;
+    if (now - this.lastPublish < this.publishInterval) {
+      // eslint-disable-next-line no-console
+      console.log(
+        `[BusPublisher] skipping publish — debounce (session=${sessionID}, delta=${now - this.lastPublish}ms)`,
+      );
+      return;
+    }
     this.lastPublish = now;
 
     const cumulative = cache.get(sessionID);
@@ -39,6 +63,10 @@ export class BusPublisher {
     else if (cumulative >= config.softLimit) status = "soft_exceeded";
 
     try {
+      // eslint-disable-next-line no-console
+      console.log(
+        `[BusPublisher] publishing tbg/${sessionID}/status — cumulative=${cumulative} status=${status}`,
+      );
       await this.bus.publish(`tbg/${sessionID}/status`, {
         sessionID,
         cumulative,
@@ -47,10 +75,23 @@ export class BusPublisher {
         percentage,
         status,
       });
-    } catch {
-      // Bus disconnected — try reconnect on next publish
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        "[BusPublisher] publish failed:",
+        (err as Error).message,
+        "— scheduling reconnect in 5s",
+      );
       this.bus = null;
-      setTimeout(() => this.init(), 5000);
+      if (!this.reconnecting) {
+        this.reconnecting = true;
+        // eslint-disable-next-line no-console
+        console.log("[BusPublisher] attempting reconnection in 5s...");
+        setTimeout(async () => {
+          this.reconnecting = false;
+          await this.init();
+        }, 5000);
+      }
     }
   }
 }

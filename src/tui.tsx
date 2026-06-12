@@ -71,7 +71,7 @@ function TokenMeterView(_props: { api: TuiPluginApi; sessionId: string }) {
   const barColor = pct < 50 ? "#4caf50" : pct < 80 ? "#ff9800" : "#f44336";
 
   return (
-      <box width="100%" flexDirection="column" paddingLeft={0} paddingRight={1} paddingY={1}>
+      <box width="100%" flexDirection="column" paddingLeft={0} paddingRight={1} paddingTop={1} paddingBottom={0}>
       <text>
         <b>Token Budget</b>
       </text>
