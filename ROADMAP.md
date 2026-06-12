@@ -41,6 +41,11 @@
 ## v1.0.0 — Production Polish
 - [ ] Replace chars/4 heuristic with tiktoken or equivalent accurate tokenizer
 - [ ] Diary compaction (auto-rotate old JSONL files after N days)
-- [ ] Expose `/stats` endpoint for current session token usage
+- [ ] **Cumulative session token visibility** — `token_stats` tool + `/stats` endpoint:
+  - `token_stats({sessionID?})` → `{cumulative, softLimit, hardLimit, percentUsed, status}`
+  - Independent of context compaction — survives compaction cycles (separate from LLM context)
+  - Already backed by SessionTokenCache (data exists internally, just not exposed)
+  - Exposed as opencode plugin tool (agents query on-demand) + CLI (`tbg stats`) for humans
+  - Optional: auto-inject session summary into `session.idle` output
 - [ ] CI/CD: GitHub Actions for typecheck + test + build on PR
 - [ ] npm registry publish automation

@@ -12,11 +12,20 @@ import {
   type PolicyContext,
 } from "./policy-engine.js";
 import { MaxStartTokensPolicy } from "./policies/max-start-tokens.js";
+import { createTokenMeterTool } from "./token-meter.js";
+import { BusPublisher } from "./bus-publisher.js";
 
 const sessionTokens = new SessionTokenCache(
   parseInt(process.env.FOUR_TBG_MAX_SESSIONS || "1000", 10),
   parseInt(process.env.FOUR_TBG_SESSION_TTL_MS || String(60 * 60 * 1000), 10),
 );
+
+// ── Plugin Bus (P4d) ────────────────────────────────────
+const busPublisher = new BusPublisher();
+busPublisher.init(); // fire-and-forget — connects if bus available
+
+// Track current session ID (set on first event)
+let currentSessionID = "";
 
 export const FourTokenBudgetGuardPlugin: Plugin = async (_ctx) => {
   const config = loadConfig();
@@ -68,9 +77,13 @@ export const FourTokenBudgetGuardPlugin: Plugin = async (_ctx) => {
         if (!part || part.type !== "text" || typeof part.text !== "string") return;
 
         const sessionID = props.sessionID ?? "unknown";
+        currentSessionID = sessionID;
         const tokensApprox = estimateTokens(part.text);
         const cumulative = sessionTokens.add(sessionID, tokensApprox);
         const msgRole = "text-part";
+
+        // Publish to plugin bus (P4d) — fire-and-forget on every token update
+        busPublisher.publish(currentSessionID, tokensApprox, sessionTokens, config).catch(() => {});
 
         if (cumulative >= config.softLimit) {
           const isHard = cumulative >= config.hardLimit;
@@ -184,6 +197,13 @@ export const FourTokenBudgetGuardPlugin: Plugin = async (_ctx) => {
       } catch {
         // silent — NEVER throw from event-hook
       }
+    },
+    tool: {
+      token_meter_status: createTokenMeterTool(
+        sessionTokens,
+        config,
+        () => currentSessionID,
+      ),
     },
   };
 };
