@@ -33,7 +33,6 @@ export const FourTokenBudgetGuardPlugin: Plugin = async (_ctx) => {
   const policies: Policy[] = [new MaxStartTokensPolicy()];
   let lastDiaryTokenCount = 0;
   let lastWarnTime = 0;
-  let firstEventLogged = false;
 
   async function maybeWriteDiary(
     reason: "below_soft" | "limit_exceeded" | "policy_enforce",
@@ -68,13 +67,6 @@ export const FourTokenBudgetGuardPlugin: Plugin = async (_ctx) => {
     event: async (input) => {
       try {
         const ev = input.event;
-        if (!firstEventLogged) {
-          firstEventLogged = true;
-          // eslint-disable-next-line no-console
-          console.log(
-            `[four-tbg] first event received: type=${ev.type} busConnected=${busPublisher["bus"] !== null}`,
-          );
-        }
         if (ev.type !== "message.part.updated") return;
 
         const props = ev.properties as {

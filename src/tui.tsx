@@ -3,117 +3,67 @@ import { createSignal, onMount, onCleanup } from "solid-js";
 import type { TuiPlugin, TuiPluginApi, TuiPluginModule } from "@opencode-ai/plugin/tui";
 import { BusTui } from "@four-bytes/opencode-plugin-lib/tui";
 
-interface TokenStatus {
-  sessionID: string;
-  cumulative: number;
-  softLimit: number;
-  hardLimit: number;
-  percentage: number;
-  status: string;
-}
-
 const SIDEBAR_ORDER = 42;
 
 const tui: TuiPlugin = async (api: TuiPluginApi) => {
   api.slots.register({
     order: SIDEBAR_ORDER,
     slots: {
-      sidebar_content(_ctx, props: Record<string, unknown>) {
-        return <TokenMeterView api={api} sessionId={props.session_id as string} />;
+      sidebar_content(_ctx, _props: Record<string, unknown>) {
+        return <TokenMeterView />;
       },
     },
   });
 };
 
-function TokenMeterView(_props: { api: TuiPluginApi; sessionId: string }) {
-  const [status, setStatus] = createSignal<TokenStatus | null>(null);
-  const [busStatus, setBusStatus] = createSignal<"connecting" | "connected" | "disconnected">("connecting");
-  const [hidden, setHidden] = createSignal(false);
-  let bus: BusTui | null = null;
-  let unsub: (() => void) | null = null;
-  let hideTimer: ReturnType<typeof setTimeout> | null = null;
+function TokenMeterView() {
+  const [tokens, setTokens] = createSignal(0);
+  const [limit, setLimit] = createSignal(50000);
+  const [connected, setConnected] = createSignal(false);
 
   onMount(async () => {
-    let retries = 5;
-    while (retries > 0) {
-      try {
-        bus = await BusTui.connect(5000);
-        setBusStatus("connected");
-
-        unsub = bus.subscribe("tbg/+/status", (msg) => {
-          setStatus(msg.payload as TokenStatus);
-        });
-        return; // success — stop retrying
-      } catch {
-        retries--;
-        if (retries > 0) {
-          setBusStatus("connecting");
-          await new Promise((r) => setTimeout(r, 2000)); // wait 2s between retries
+    try {
+      const bus = await BusTui.connect(5000);
+      setConnected(true);
+      
+      bus.subscribe("tbg/+/status", (msg) => {
+        const p = msg.payload as any;
+        if (typeof p.cumulative === "number") {
+          setTokens(p.cumulative);
         }
-      }
+        if (typeof p.hardLimit === "number") {
+          setLimit(p.hardLimit);
+        }
+      });
+
+      onCleanup(() => bus.close());
+    } catch {
+      setConnected(false);
     }
-    // All retries exhausted
-    setBusStatus("disconnected");
-    hideTimer = setTimeout(() => setHidden(true), 3000);
   });
 
-  onCleanup(() => {
-    if (unsub) unsub();
-    if (bus) bus.close();
-    if (hideTimer) clearTimeout(hideTimer);
-  });
-
-  // ── Render ──
-  if (hidden()) return null;
-
-  const s = status();
-  const pct = s?.percentage ?? 0;
+  const pct = limit() > 0 ? Math.round((tokens() / limit()) * 100) : 0;
   const barColor = pct < 50 ? "#4caf50" : pct < 80 ? "#ff9800" : "#f44336";
 
   return (
-      <box width="100%" flexDirection="column" paddingLeft={0} paddingRight={1} paddingTop={1} paddingBottom={0}>
+    <box flexDirection="column" paddingLeft={0} paddingRight={1} paddingTop={1} paddingBottom={0}>
       <text>
-        <b>Token Budget</b>
+        <b>📊 Tokens</b>
       </text>
-
-      {busStatus() === "connecting" && (
-        <text fg="#888">connecting to bus...</text>
+      
+      {!connected() && (
+        <text fg="#888">connecting...</text>
       )}
 
-      {busStatus() === "disconnected" && !s && (
-        <text fg="#888">plugin bus not available</text>
-      )}
-
-      {busStatus() === "connected" && !s && (
-        <text fg="#888">ready — waiting for token data...</text>
-      )}
-
-      {s && (
+      {connected() && (
         <>
-          {/* Progress bar track */}
           <box height={1} width="100%" backgroundColor="#333" marginY={1}>
-            {/* Progress bar fill */}
-            <box
-              height={1}
-              width={`${Math.min(pct, 100)}%`}
-              backgroundColor={barColor}
-            />
+            <box height={1} width={`${Math.min(pct, 100)}%`} backgroundColor={barColor} />
           </box>
-
-          {/* Stats row */}
-          <box width="100%" flexDirection="row" justifyContent="space-between">
-            <text>
-              {s.cumulative.toLocaleString()} / {s.softLimit.toLocaleString()}
-            </text>
+          <box flexDirection="row" justifyContent="space-between" width="100%">
+            <text>{tokens().toLocaleString()} / {limit().toLocaleString()}</text>
             <text fg={barColor}>{pct}%</text>
           </box>
-          <text fg="#888">
-            {s.status === "below_soft"
-              ? "within budget"
-              : s.status === "soft_exceeded"
-                ? "soft limit exceeded"
-                : "hard limit exceeded"}
-          </text>
         </>
       )}
     </box>
