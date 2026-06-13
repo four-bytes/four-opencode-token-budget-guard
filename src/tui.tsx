@@ -2,7 +2,7 @@
 import { createSignal, onMount, onCleanup } from "solid-js";
 import type { TuiPlugin, TuiPluginApi, TuiPluginModule } from "@opencode-ai/plugin/tui";
 import { BusTui } from "@four-bytes/opencode-plugin-lib/tui";
-import { ProgressBar } from "@four-bytes/opencode-plugin-lib/tui-components";
+import { TokenMeter } from "@four-bytes/opencode-plugin-lib/tui-components";
 
 const SIDEBAR_ORDER = 42;
 
@@ -46,18 +46,14 @@ function TokenMeterView() {
 
   return (
     <box flexDirection="column" paddingLeft={0} paddingRight={1} paddingTop={1} paddingBottom={0}>
-      <text>
-        <b>Tokens 📊</b>
-      </text>
-      
       {!connected() && (
         <text fg="#888">connecting...</text>
       )}
 
       {connected() && (
-        <ProgressBar
-          current={tokens()}
-          total={limit()}
+        <TokenMeter
+          tokens={tokens()}
+          softLimit={limit()}
           colors={{ green: "#4caf50", orange: "#ff9800", red: "#f44336" }}
         />
       )}
