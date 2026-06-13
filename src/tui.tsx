@@ -2,6 +2,7 @@
 import { createSignal, onMount, onCleanup } from "solid-js";
 import type { TuiPlugin, TuiPluginApi, TuiPluginModule } from "@opencode-ai/plugin/tui";
 import { BusTui } from "@four-bytes/opencode-plugin-lib/tui";
+import { ProgressBar } from "@four-bytes/opencode-plugin-lib/tui-components";
 
 const SIDEBAR_ORDER = 42;
 
@@ -42,8 +43,6 @@ function TokenMeterView() {
     }
   });
 
-  const pct = limit() > 0 ? Math.round((tokens() / limit()) * 100) : 0;
-  const barColor = pct < 50 ? "#4caf50" : pct < 80 ? "#ff9800" : "#f44336";
 
   return (
     <box flexDirection="column" paddingLeft={0} paddingRight={1} paddingTop={1} paddingBottom={0}>
@@ -56,15 +55,11 @@ function TokenMeterView() {
       )}
 
       {connected() && (
-        <>
-          <box height={1} width="100%" backgroundColor="#333" marginY={1}>
-            <box height={1} width={`${Math.min(pct, 100)}%`} backgroundColor={barColor} />
-          </box>
-          <box flexDirection="row" justifyContent="space-between" width="100%">
-            <text>{tokens().toLocaleString()} / {limit().toLocaleString()}</text>
-            <text fg={barColor}>{pct}%</text>
-          </box>
-        </>
+        <ProgressBar
+          current={tokens()}
+          total={limit()}
+          colors={{ green: "#4caf50", orange: "#ff9800", red: "#f44336" }}
+        />
       )}
     </box>
   );
