@@ -45,7 +45,7 @@ function TokenMeterView() {
 
 
   return (
-    <box flexDirection="column" paddingLeft={0} paddingRight={1} paddingTop={1} paddingBottom={0}>
+    <box flexDirection="column">
       {!connected() && (
         <text fg="#888">connecting...</text>
       )}
