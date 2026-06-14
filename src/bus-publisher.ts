@@ -39,7 +39,7 @@ export class BusPublisher {
     else if (cumulative >= config.softLimit) status = "soft_exceeded";
 
     try {
-      await this.bus.publish(`tbg/${sessionID}/status`, {
+      await this.bus.forService("tbg").forSession(sessionID).publish("status", {
         sessionID,
         cumulative,
         softLimit: config.softLimit,

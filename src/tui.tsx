@@ -27,7 +27,7 @@ function TokenMeterView(props: { session_id: string }) {
       const bus = await BusTui.connect(5000);
       setConnected(true);
 
-      bus.subscribe(`tbg/${props.session_id}/status`, (msg) => {
+      bus.forService("tbg").forSession(props.session_id).subscribe("status", (msg) => {
         const p = msg.payload as any;
         if (typeof p.cumulative === "number") {
           setTokens(p.cumulative);
