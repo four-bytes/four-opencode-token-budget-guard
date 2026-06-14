@@ -27,8 +27,9 @@ busPublisher.init(); // fire-and-forget — connects if bus available
 // Track current session ID (set on first event)
 let currentSessionID = "";
 
-export const FourTokenBudgetGuardPlugin: Plugin = async (_ctx) => {
+export const FourTokenBudgetGuardPlugin: Plugin = async (ctx) => {
   const config = loadConfig();
+  logDebugEvent("plugin.loaded", { directory: ctx.directory });
   const policyConfig = loadPolicyConfig();
   const policies: Policy[] = [new MaxStartTokensPolicy()];
   let lastDiaryTokenCount = 0;
@@ -100,9 +101,7 @@ export const FourTokenBudgetGuardPlugin: Plugin = async (_ctx) => {
           if (Date.now() - lastWarnTime >= 60000) {
             lastWarnTime = Date.now();
             // eslint-disable-next-line no-console
-            console.warn(
-              `[four-tbg] ${level} limit exceeded — session=${sessionID} tokens=${cumulative} (soft=${config.softLimit}, hard=${config.hardLimit})`,
-            );
+            ctx.client.tui.showToast({ body: { title: "Token Budget ⚠️", message: `${level} limit: ${cumulative} tokens (soft=${config.softLimit}, hard=${config.hardLimit})`, variant: isHard ? "error" : "warning", duration: 7000 } });
           }
 
           // Signal curator to compact via env
@@ -178,7 +177,7 @@ export const FourTokenBudgetGuardPlugin: Plugin = async (_ctx) => {
             );
           }
           if (result.level === "warn") {
-            console.warn(`[four-tbg] POLICY WARN: ${result.name} — ${result.message}`);
+            ctx.client.tui.showToast({ body: { title: `Policy: ${result.name}`, message: result.message, variant: "warning", duration: 7000 } });
             logDebugEvent("policy.warn", {
               policyName: result.name,
               message: result.message,
