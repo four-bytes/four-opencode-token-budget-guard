@@ -10,14 +10,14 @@ const tui: TuiPlugin = async (api: TuiPluginApi) => {
   api.slots.register({
     order: SIDEBAR_ORDER,
     slots: {
-      sidebar_content(_ctx, _props: Record<string, unknown>) {
-        return <TokenMeterView />;
+      sidebar_content(_ctx, props: { session_id: string }) {
+        return <TokenMeterView session_id={props.session_id} />;
       },
     },
   });
 };
 
-function TokenMeterView() {
+function TokenMeterView(props: { session_id: string }) {
   const [tokens, setTokens] = createSignal(0);
   const [limit, setLimit] = createSignal(50000);
   const [connected, setConnected] = createSignal(false);
@@ -26,8 +26,8 @@ function TokenMeterView() {
     try {
       const bus = await BusTui.connect(5000);
       setConnected(true);
-      
-      bus.subscribe("tbg/+/status", (msg) => {
+
+      bus.subscribe(`tbg/${props.session_id}/status`, (msg) => {
         const p = msg.payload as any;
         if (typeof p.cumulative === "number") {
           setTokens(p.cumulative);
