@@ -17,7 +17,7 @@ import { BusPublisher } from "./bus-publisher.js";
 
 const sessionTokens = new SessionTokenCache(
   parseInt(process.env.FOUR_TBG_MAX_SESSIONS || "1000", 10),
-  parseInt(process.env.FOUR_TBG_SESSION_TTL_MS || String(60 * 60 * 1000), 10),
+  parseInt(process.env.FOUR_TBG_SESSION_TTL_MS || String(7 * 24 * 60 * 60 * 1000), 10), // 7 days — prevent active-session eviction
 );
 
 // ── Plugin Bus (P4d) ────────────────────────────────────
