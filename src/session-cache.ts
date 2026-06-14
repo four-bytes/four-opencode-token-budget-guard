@@ -16,18 +16,14 @@ export class SessionTokenCache {
   get(sessionID: string): number {
     const entry = this.map.get(sessionID);
     if (!entry) return 0;
-    if (Date.now() - entry.lastAccess > this.ttlMs) {
-      this.map.delete(sessionID);
-      return 0;
-    }
-    entry.lastAccess = Date.now();
+    // Don't update lastAccess here — get() is read-only
     return entry.tokens;
   }
 
   add(sessionID: string, delta: number): number {
     this.evictStale();
     // Read own state BEFORE LRU eviction so we don't self-evict
-    const prev = this.get(sessionID); // touches lastAccess via get()
+    const prev = this.get(sessionID); // touches lastAccess (get is read-only)
     // If we just added a new session, may need to evict
     this.evictOldestIfFull();
     const next = prev + delta;

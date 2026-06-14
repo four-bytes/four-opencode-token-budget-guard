@@ -77,13 +77,22 @@ export const FourTokenBudgetGuardPlugin: Plugin = async (_ctx) => {
         if (!part || part.type !== "text" || typeof part.text !== "string") return;
 
         const sessionID = props.sessionID ?? "unknown";
-        currentSessionID = sessionID;
+        // Only switch if new session is genuinely new (no tokens yet)
+        if (sessionID !== currentSessionID) {
+          const existingTokens = sessionTokens.get(sessionID);
+          if (existingTokens === 0) {
+            // New session — start fresh
+            currentSessionID = sessionID;
+          }
+          // else: keep tracking old session (compaction created new ID but tokens belong to old)
+        }
         const tokensApprox = estimateTokens(part.text);
         const cumulative = sessionTokens.add(sessionID, tokensApprox);
         const msgRole = "text-part";
 
         // Publish to plugin bus (P4d) — fire-and-forget on every token update
-        busPublisher.publish(currentSessionID, tokensApprox, sessionTokens, config).catch(() => {});
+        // Use the EVENT's sessionID, not currentSessionID (avoids drift when event has new ID)
+        busPublisher.publish(sessionID, tokensApprox, sessionTokens, config).catch(() => {});
 
         if (cumulative >= config.softLimit) {
           const isHard = cumulative >= config.hardLimit;
