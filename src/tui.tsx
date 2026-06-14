@@ -54,7 +54,6 @@ function TokenMeterView() {
         <TokenMeter
           tokens={tokens()}
           softLimit={limit()}
-          colors={{ green: "#4caf50", orange: "#ff9800", red: "#f44336" }}
         />
       )}
     </box>
