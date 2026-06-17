@@ -22,13 +22,26 @@ const sessionTokens = new SessionTokenCache(
 
 // ── Plugin Bus (P4d) ────────────────────────────────────
 const busPublisher = new BusPublisher();
-busPublisher.init(); // fire-and-forget — connects if bus available
+// init() is called inside the Plugin callback once ctx.client is available
 
 // Track current session ID (set on first event)
 let currentSessionID = "";
 
 export const FourTokenBudgetGuardPlugin: Plugin = async (ctx) => {
   const config = loadConfig();
+  // Initialize bus publisher with app.log for warning messages
+  await busPublisher.init({
+    onWarn: (msg, ...args) => {
+      ctx.client.app.log({
+        body: {
+          service: "tbg",
+          level: "warn",
+          message: msg,
+          extra: { details: args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(" ") }
+        }
+      }).catch(() => {});
+    }
+  });
   logDebugEvent("plugin.loaded", { directory: ctx.directory });
   const policyConfig = loadPolicyConfig();
   const policies: Policy[] = [new MaxStartTokensPolicy()];
