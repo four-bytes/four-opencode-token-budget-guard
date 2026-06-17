@@ -10,7 +10,7 @@ export class BusPublisher {
 
   async init(): Promise<void> {
     try {
-      this.bus = await BusClient.connect(3000);
+      this.bus = await BusClient.connect({ timeoutMs: 3000 });
     } catch {
       this.bus = null;
     }
