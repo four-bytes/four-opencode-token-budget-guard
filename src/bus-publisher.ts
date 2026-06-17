@@ -8,9 +8,9 @@ export class BusPublisher {
   private publishInterval = 500; // ms — debounce
   private reconnecting = false;
 
-  async init(): Promise<void> {
+  async init(opts?: { onWarn?: (message: string, ...args: unknown[]) => void }): Promise<void> {
     try {
-      this.bus = await BusClient.connect({ timeoutMs: 3000 });
+      this.bus = await BusClient.connect({ timeoutMs: 3000, onWarn: opts?.onWarn });
     } catch {
       this.bus = null;
     }
