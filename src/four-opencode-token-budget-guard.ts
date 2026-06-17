@@ -30,14 +30,14 @@ let currentSessionID = "";
 export const FourTokenBudgetGuardPlugin: Plugin = async (ctx) => {
   const config = loadConfig();
   // Initialize bus publisher with app.log for warning messages
-  busPublisher.init({
+  await busPublisher.init({
     onWarn: (msg, ...args) => {
       ctx.client.app.log({
         body: {
           service: "tbg",
           level: "warn",
           message: msg,
-          extra: { details: args.map(String).join(" ") }
+          extra: { details: args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(" ") }
         }
       }).catch(() => {});
     }

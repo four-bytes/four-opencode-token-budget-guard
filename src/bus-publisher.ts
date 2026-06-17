@@ -7,8 +7,10 @@ export class BusPublisher {
   private lastPublish = 0;
   private publishInterval = 500; // ms — debounce
   private reconnecting = false;
+  private onWarn: ((message: string, ...args: unknown[]) => void) | undefined;
 
   async init(opts?: { onWarn?: (message: string, ...args: unknown[]) => void }): Promise<void> {
+    this.onWarn = opts?.onWarn;
     try {
       this.bus = await BusClient.connect({ timeoutMs: 3000, onWarn: opts?.onWarn });
     } catch {
@@ -53,7 +55,7 @@ export class BusPublisher {
         this.reconnecting = true;
         setTimeout(async () => {
           this.reconnecting = false;
-          await this.init();
+          await this.init({ onWarn: this.onWarn });
         }, 5000);
       }
     }
