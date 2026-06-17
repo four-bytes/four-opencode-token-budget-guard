@@ -53,10 +53,15 @@ export class BusPublisher {
       this.bus = null;
       if (!this.reconnecting) {
         this.reconnecting = true;
-        setTimeout(async () => {
-          this.reconnecting = false;
+        const reconnect = async (): Promise<void> => {
           await this.init({ onWarn: this.onWarn });
-        }, 5000);
+          if (!this.bus) {
+            setTimeout(reconnect, 5000);
+            return;
+          }
+          this.reconnecting = false;
+        };
+        setTimeout(reconnect, 5000);
       }
     }
   }

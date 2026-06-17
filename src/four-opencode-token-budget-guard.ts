@@ -37,7 +37,14 @@ export const FourTokenBudgetGuardPlugin: Plugin = async (ctx) => {
           service: "tbg",
           level: "warn",
           message: msg,
-          extra: { details: args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(" ") }
+          extra: { details: args.map(a => {
+            if (typeof a !== 'object' || a === null) return String(a);
+            try {
+              return JSON.stringify(a);
+            } catch {
+              return "[unserializable]";
+            }
+          }).join(" ") }
         }
       }).catch(() => {});
     }
