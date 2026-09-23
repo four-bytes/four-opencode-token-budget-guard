@@ -28,6 +28,43 @@ Environment variables:
 | `FOUR_TBG_HARD_LIMIT` | `16000` | Cancellation limit (tokens) |
 | `FOUR_TBG_ENABLED` | `true` | Enable/disable |
 
+## Per-agent budgets & context-growth alarm
+
+Per-turn budgets are resolved **per agent** from `opencode.json` / `opencode.jsonc`
+in the project directory (JSONC comments allowed). Resolution order: agent entry →
+`default` → hardcoded fallback (`softPerTurn: 60000`, `hardPerTurn: 120000`).
+Unknown agents fall back to `default` and are logged once.
+
+```jsonc
+// opencode.json
+{
+  "token_budget_guard": {
+    "default":   { "softPerTurn": 60000,  "hardPerTurn": 120000 },
+    "architect": { "softPerTurn": 120000, "hardPerTurn": 190000 },
+    "build":     { "softPerTurn": 80000,  "hardPerTurn": 150000 },
+    "explore":   { "softPerTurn": 25000,  "hardPerTurn": 50000 }
+  }
+}
+```
+
+The guard also watches **context-growth rate** (cumulative context size per turn
+boundary) and warns when it grows faster than expected:
+
+- **soft** — cumulative context grew by more than `growthPct`% over the last
+  `growthWindow` turns.
+- **hard** — projected context at the current slope reaches the context window
+  within `projectTurns` turns (names the top pruned source from the
+  context-curator diary, e.g. `· top source: run_tests (41%)`).
+
+Growth parameters (env → config-file numeric keys in `token_budget_guard` → defaults):
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `FOUR_TBG_GROWTH_PCT` | `25` | Soft-alarm growth threshold (%) over the window |
+| `FOUR_TBG_GROWTH_WINDOW` | `10` | Number of turns in the growth window |
+| `FOUR_TBG_PROJECT_TURNS` | `15` | Projection horizon for the hard alarm |
+| `FOUR_TBG_CONTEXT_WINDOW` | `200000` | Context window size (tokens) for the hard alarm |
+
 ## Policy Engine
 
 4 policies configurable per session:
