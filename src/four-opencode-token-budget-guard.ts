@@ -14,6 +14,15 @@ import {
 import { MaxStartTokensPolicy } from "./policies/max-start-tokens.js";
 import { createTokenMeterTool } from "./token-meter.js";
 import { BusPublisher } from "./bus-publisher.js";
+import {
+  AgentBudgetResolver,
+  evaluatePerTurnThreshold,
+  loadBudgetConfig,
+  loadGrowthParams,
+} from "./agent-config.js";
+import { TurnTracker } from "./turn-tracker.js";
+import { computeGrowthAlarm, formatSlope } from "./growth.js";
+import { readTopSource } from "./growth-source.js";
 
 const sessionTokens = new SessionTokenCache(
   parseInt(process.env.FOUR_TBG_MAX_SESSIONS || "1000", 10),
@@ -23,6 +32,9 @@ const sessionTokens = new SessionTokenCache(
 // ── Plugin Bus (P4d) ────────────────────────────────────
 const busPublisher = new BusPublisher();
 // init() is called inside the Plugin callback once ctx.client is available
+
+// Per-session turn state (agent name, per-turn accumulator, turn history)
+const turnTracker = new TurnTracker();
 
 // Track current session ID (set on first event)
 let currentSessionID = "";
@@ -50,6 +62,12 @@ export const FourTokenBudgetGuardPlugin: Plugin = async (ctx) => {
     }
   });
   logDebugEvent("plugin.loaded", { directory: ctx.directory });
+  const directory = (ctx as { directory?: string }).directory;
+  const budgetConfig = loadBudgetConfig(directory);
+  const agentBudgets = new AgentBudgetResolver(budgetConfig.agents, (agent) => {
+    logDebugEvent("config.unknown_agent", { agent });
+  });
+  const growthParams = loadGrowthParams(budgetConfig.growth);
   const policyConfig = loadPolicyConfig();
   const policies: Policy[] = [new MaxStartTokensPolicy()];
   let lastDiaryTokenCount = 0;
@@ -80,11 +98,118 @@ export const FourTokenBudgetGuardPlugin: Plugin = async (ctx) => {
     }
   }
 
+  // Throttle state for per-turn and slope warnings (per session+level).
+  const perTurnLastWarn = new Map<string, number>();
+  const slopeLastWarn = new Map<string, number>();
+
+  function shouldWarn(
+    map: Map<string, number>,
+    key: string,
+    intervalMs = 60_000,
+  ): boolean {
+    const last = map.get(key) ?? 0;
+    if (Date.now() - last < intervalMs) return false;
+    map.set(key, Date.now());
+    return true;
+  }
+
+  /** Per-turn threshold: soft/hard warn (never throw) against the agent budget. */
+  function checkPerTurnThreshold(sessionID: string, turnTokens: number): void {
+    const agent = turnTracker.getAgent(sessionID) ?? "unknown";
+    const budget = agentBudgets.resolve(agent);
+    const level = evaluatePerTurnThreshold(turnTokens, budget);
+    if (!level) return;
+
+    const key = `${sessionID}:${level}`;
+    if (!shouldWarn(perTurnLastWarn, key)) return;
+
+    const limit = level === "hard" ? budget.hardPerTurn : budget.softPerTurn;
+    const turnNumber = turnTracker.getTurnNumber(sessionID);
+    const message = `[${agent}] turn ${turnNumber}: ${turnTokens} tokens exceed ${level === "hard" ? "hardPerTurn" : "softPerTurn"} ${limit}`;
+    logDebugEvent("per_turn.limit_exceeded", {
+      level,
+      agent,
+      sessionID,
+      turnNumber,
+      turnTokens,
+      limit,
+    });
+    ctx.client.tui.showToast({
+      body: {
+        title: "Per-Turn Budget ⚠️",
+        message,
+        variant: level === "hard" ? "error" : "warning",
+        duration: 7000,
+      },
+    });
+  }
+
+  /** Context-growth slope alarm (soft/hard), evaluated at turn boundaries. */
+  function checkSlopeAlarm(sessionID: string, agent: string | null): void {
+    const history = turnTracker.getHistory(sessionID);
+    const alarm = computeGrowthAlarm(history, growthParams);
+    const agentLabel = agent ?? "unknown";
+
+    if (alarm.hard) {
+      const key = `${sessionID}:hard`;
+      if (shouldWarn(slopeLastWarn, key)) {
+        const top = readTopSource(sessionID);
+        const cause = top ? ` · top source: ${top.tool} (${top.pct}%)` : "";
+        const message = `context growing ${formatSlope(alarm.hard.slope)}${cause}`;
+        logDebugEvent("growth.hard_alarm", {
+          agent: agentLabel,
+          sessionID,
+          slope: alarm.hard.slope,
+          projected: alarm.hard.projected,
+          topSource: top,
+        });
+        ctx.client.tui.showToast({
+          body: { title: "Context Growth ⚠️", message, variant: "error", duration: 7000 },
+        });
+      }
+      return;
+    }
+
+    if (alarm.soft) {
+      const key = `${sessionID}:soft`;
+      if (shouldWarn(slopeLastWarn, key)) {
+        const message = `context growing ${formatSlope(alarm.soft.slope)}`;
+        logDebugEvent("growth.soft_alarm", {
+          agent: agentLabel,
+          sessionID,
+          slope: alarm.soft.slope,
+          growthPctObserved: alarm.soft.growthPctObserved,
+        });
+        ctx.client.tui.showToast({
+          body: { title: "Context Growth ⚠️", message, variant: "warning", duration: 7000 },
+        });
+      }
+    }
+  }
+
   if (!config.enabled) {
     return {};
   }
 
   return {
+    "chat.message": async (input) => {
+      try {
+        const sessionID = input.sessionID;
+        const agent =
+          input.agent && input.agent.trim().length > 0 ? input.agent : null;
+        // Turn boundary: finalize the previous turn's cumulative context into the
+        // slope history, record the new agent, and run the slope alarm (labelled
+        // with the agent whose history produced it).
+        const previousAgent = turnTracker.beginTurn(
+          sessionID,
+          agent,
+          sessionTokens.get(sessionID),
+        );
+        checkSlopeAlarm(sessionID, previousAgent);
+      } catch {
+        // silent — NEVER throw from chat.message hook
+      }
+    },
     event: async (input) => {
       try {
         const ev = input.event;
@@ -109,6 +234,8 @@ export const FourTokenBudgetGuardPlugin: Plugin = async (ctx) => {
         }
         const tokensApprox = estimateTokens(part.text);
         const cumulative = sessionTokens.add(sessionID, tokensApprox);
+        const turnTokens = turnTracker.addTokens(sessionID, tokensApprox);
+        checkPerTurnThreshold(sessionID, turnTokens);
         const msgRole = "text-part";
 
         // Publish to plugin bus (P4d) — fire-and-forget on every token update
