@@ -1,6 +1,6 @@
 {
   "name": "@four-bytes/four-opencode-token-budget-guard",
-  "version": "0.6.3",
+  "version": "0.6.4",
   "description": "Token budget guard with soft/hard limits, policy engine, diary, compaction trigger, and token-meter TUI",
   "type": "module",
   "main": "dist/four-opencode-token-budget-guard.js",
@@ -41,7 +41,7 @@
     "@four-bytes/opencode-plugin-lib": "file:../four-opencode-plugin-lib",
     "@opencode-ai/plugin": "^1.15.13",
     "@opentui/solid": "0.4.1",
-    "solid-js": "1.9.13"
+    "solid-js": "1.9.14"
   },
   "devDependencies": {
     "@types/bun": "^1.3.8",

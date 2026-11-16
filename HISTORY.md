@@ -1,5 +1,22 @@
 # Project Change History
 
+## v0.6.4 — 2026-09-23
+
+### Added
+- Context-growth slope alarm (#54): least-squares slope over trailing turns warns
+  soft (`context growing +X/turn`) on >growthPct% growth and hard when the projected
+  per-turn tokens exceed the context window, naming the top pruned source from the
+  context-curator diary (`· top source: run_tests (41%)`).
+- Per-agent per-turn budgets: `token_budget_guard` in `opencode.json(c)`
+  (`default` / per-agent `softPerTurn`/`hardPerTurn`), resolved agent → `default` →
+  hardcoded fallback, unknown agent logged once.
+- Per-turn soft/hard threshold warnings (agent + turn named, never throw).
+- New modules: `src/agent-config.ts`, `src/turn-tracker.ts`, `src/growth.ts`,
+  `src/growth-source.ts`.
+- New ENV: `FOUR_TBG_GROWTH_PCT`, `FOUR_TBG_GROWTH_WINDOW`, `FOUR_TBG_PROJECT_TURNS`,
+  `FOUR_TBG_CONTEXT_WINDOW`.
+- `chat.message` hook for turn boundaries (agent capture + turn finalization).
+
 ## v0.6.1 — 2026-06-05
 
 ### Changed
