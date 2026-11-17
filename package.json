@@ -1,6 +1,6 @@
 {
   "name": "@four-bytes/four-opencode-token-budget-guard",
-  "version": "0.6.4",
+  "version": "0.6.5",
   "description": "Token budget guard with soft/hard limits, policy engine, diary, compaction trigger, and token-meter TUI",
   "type": "module",
   "main": "dist/four-opencode-token-budget-guard.js",
@@ -21,6 +21,7 @@
   },
   "scripts": {
     "build": "bun run scripts/build.ts",
+    "postinstall": "bun run build",
     "dev": "bun build src/four-opencode-token-budget-guard.ts --outdir dist --target bun --format esm --watch",
     "typecheck": "bunx tsc --noEmit"
   },
