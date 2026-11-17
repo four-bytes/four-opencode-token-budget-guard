@@ -39,7 +39,7 @@
     "url": "git+https://github.com/four-bytes/four-opencode-token-budget-guard.git"
   },
   "dependencies": {
-    "@four-bytes/opencode-plugin-lib": "file:../four-opencode-plugin-lib",
+    "@four-bytes/opencode-plugin-lib": "github:four-bytes/four-opencode-plugin-lib#v0.8.9",
     "@opencode-ai/plugin": "^1.15.13",
     "@opentui/solid": "0.4.5",
     "solid-js": "1.9.14"
