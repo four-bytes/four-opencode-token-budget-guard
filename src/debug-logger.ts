@@ -8,16 +8,20 @@ export interface DebugEvent {
   [key: string]: unknown;
 }
 
-const CACHE_DIR = join(homedir(), ".cache", "opencode", "four-opencode-token-budget-guard");
+function cacheDir(): string {
+  const base = process.env.XDG_CACHE_HOME || join(homedir(), ".cache");
+  return join(base, "opencode", "four-opencode-token-budget-guard");
+}
 
 function getLogPath(): string {
   const date = new Date().toISOString().split("T")[0];
-  return join(CACHE_DIR, `debug-${date}.jsonl`);
+  return join(cacheDir(), `debug-${date}.jsonl`);
 }
 
 function ensureDir(): void {
-  if (!existsSync(CACHE_DIR)) {
-    mkdirSync(CACHE_DIR, { recursive: true });
+  const dir = cacheDir();
+  if (!existsSync(dir)) {
+    mkdirSync(dir, { recursive: true });
   }
 }
 
