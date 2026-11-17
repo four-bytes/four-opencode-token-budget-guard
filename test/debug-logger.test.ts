@@ -1,27 +1,31 @@
-import { describe, it, expect, beforeAll, afterAll, afterEach, spyOn } from "bun:test";
+import { describe, it, expect, beforeAll, afterAll, afterEach } from "bun:test";
 import { existsSync, readFileSync, rmSync, mkdtempSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
 describe("Debug Logger", () => {
   const originalDebug = process.env.CC_DEBUG;
+  const originalCacheHome = process.env.XDG_CACHE_HOME;
   let logDebugEvent: (type: string, payload: Record<string, unknown>) => void;
   let tmpDir: string;
-  let homedirSpy: ReturnType<typeof spyOn>;
 
   beforeAll(async () => {
     tmpDir = mkdtempSync(join(tmpdir(), "tbg-debug-test-"));
-    homedirSpy = spyOn(await import("node:os"), "homedir").mockReturnValue(tmpDir);
+    process.env.XDG_CACHE_HOME = tmpDir;
     const mod = await import("../src/debug-logger");
     logDebugEvent = mod.logDebugEvent;
   });
 
   afterAll(() => {
-    homedirSpy?.mockRestore();
     if (originalDebug !== undefined) {
       process.env.CC_DEBUG = originalDebug;
     } else {
       delete process.env.CC_DEBUG;
+    }
+    if (originalCacheHome !== undefined) {
+      process.env.XDG_CACHE_HOME = originalCacheHome;
+    } else {
+      delete process.env.XDG_CACHE_HOME;
     }
     rmSync(tmpDir, { recursive: true, force: true });
   });
@@ -41,7 +45,6 @@ describe("Debug Logger", () => {
 
     const cacheDir = join(
       tmpDir,
-      ".cache",
       "opencode",
       "four-opencode-token-budget-guard",
     );
@@ -57,7 +60,6 @@ describe("Debug Logger", () => {
     const date = new Date().toISOString().split("T")[0];
     const logPath = join(
       tmpDir,
-      ".cache",
       "opencode",
       "four-opencode-token-budget-guard",
       `debug-${date}.jsonl`,
