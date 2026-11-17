@@ -16,7 +16,12 @@ export class SessionTokenCache {
   get(sessionID: string): number {
     const entry = this.map.get(sessionID);
     if (!entry) return 0;
-    // Don't update lastAccess here — get() is read-only
+    // Evict stale entries on read, but keep lastAccess untouched (get() stays
+    // read-only for LRU ordering — only the TTL check is enforced here).
+    if (Date.now() - entry.lastAccess > this.ttlMs) {
+      this.map.delete(sessionID);
+      return 0;
+    }
     return entry.tokens;
   }
 
