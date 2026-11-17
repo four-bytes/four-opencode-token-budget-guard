@@ -26,6 +26,7 @@ const serverResult = await build({
   target: "bun",
   format: "esm",
   external: ["@opencode-ai/*"],
+  sourcemap: "linked",
 });
 
 if (!serverResult.success) {
