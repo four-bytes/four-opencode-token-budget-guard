@@ -1,5 +1,25 @@
 # Project Change History
 
+## v0.6.6 — 2026-11-17
+
+### Fixed
+- Repeated counting of accumulated text (#76): `message.part.updated` carries
+  the full `part.text`, so summing it per event over-counted the same text many
+  times. Text parts are now keyed by part id and REPLACED on update; streamed
+  `message.part.delta` chunks are added exactly once.
+- Distinct metrics (#76): current-context estimate (`contextEstimate`),
+  generated-text estimate (`generatedEstimate`), authoritative cumulative usage
+  (`cumulativeUsage`) and cache read/write are tracked and reported separately by
+  the token meter and the bus status payload.
+- Enforcement (#76): limits are now checked in the awaited `chat.message`
+  pre-request hook. The `event` hook is fire-and-forget in opencode and its
+  `catch` swallowed the thrown limit error, so it never blocked a request. The
+  handler now rethrows `TokenBudgetExceededError`; a policy configured with
+  `enforce` also blocks.
+- Warnings and diary writes are debounced (#76): toasts at most once per
+  60 s per session+level; ordinary diary writes at most once per 30 s and per
+  5 000-token change, while hard-limit hits are always recorded.
+
 ## v0.6.4 — 2026-09-23
 
 ### Added

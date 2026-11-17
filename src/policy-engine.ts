@@ -55,7 +55,13 @@ export async function runPolicyLoop(
     try {
       const result = await policy.check(ctx);
       if (result) {
-        results.push(result);
+        // The `enforce` config flag upgrades any non-ok result to a blocking
+        // enforcement (policies themselves only report the finding).
+        results.push(
+          pConf.enforce && result.level !== "ok"
+            ? { ...result, level: "enforce" }
+            : result,
+        );
       }
     } catch (err) {
       results.push({

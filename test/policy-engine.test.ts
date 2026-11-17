@@ -30,4 +30,26 @@ describe("Policy Engine Integration", () => {
     const result = await policy.check(ctx);
     expect(result).toBeNull();
   });
+
+  it("upgrades a warning to enforce when the policy config says enforce", async () => {
+    const ctx: PolicyContext = { sessionID: "test", cumulative: 50000 };
+    const results = await runPolicyLoop(
+      [new MaxStartTokensPolicy()],
+      ctx,
+      { policies: { max_start_tokens: { enabled: true, enforce: true } } },
+    );
+    expect(results).toHaveLength(1);
+    expect(results[0].level).toBe("enforce");
+  });
+
+  it("keeps warnings non-blocking when enforce is false", async () => {
+    const ctx: PolicyContext = { sessionID: "test", cumulative: 50000 };
+    const results = await runPolicyLoop(
+      [new MaxStartTokensPolicy()],
+      ctx,
+      { policies: { max_start_tokens: { enabled: true, enforce: false } } },
+    );
+    expect(results).toHaveLength(1);
+    expect(results[0].level).toBe("warn");
+  });
 });

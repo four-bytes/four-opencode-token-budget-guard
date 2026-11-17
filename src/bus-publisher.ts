@@ -1,6 +1,6 @@
 import { BusClient } from "@four-bytes/opencode-plugin-lib";
-import type { SessionTokenCache } from "./session-cache.js";
 import type { Config } from "./config.js";
+import { budgetBasis, type SessionMetrics } from "./metrics.js";
 
 export class BusPublisher {
   private bus: BusClient | null = null;
@@ -20,9 +20,8 @@ export class BusPublisher {
 
   async publish(
     sessionID: string,
-    _tokensApprox: number,
-    cache: SessionTokenCache,
-    config: Config
+    metrics: SessionMetrics,
+    config: Config,
   ): Promise<void> {
     if (!this.bus) return;
 
@@ -30,20 +29,27 @@ export class BusPublisher {
     if (now - this.lastPublish < this.publishInterval) return;
     this.lastPublish = now;
 
-    const cumulative = cache.get(sessionID);
+    const basis = budgetBasis(metrics);
     const percentage =
       config.softLimit > 0
-        ? Math.round((cumulative / config.softLimit) * 1000) / 10
+        ? Math.round((basis / config.softLimit) * 1000) / 10
         : 0;
 
     let status = "below_soft";
-    if (cumulative >= config.hardLimit) status = "hard_exceeded";
-    else if (cumulative >= config.softLimit) status = "soft_exceeded";
+    if (basis >= config.hardLimit) status = "hard_exceeded";
+    else if (basis >= config.softLimit) status = "soft_exceeded";
 
     try {
       await this.bus.forService("tbg").forSession(sessionID).publish("status", {
         sessionID,
-        cumulative,
+        // Backward-compatible alias for the enforced budget basis (the existing
+        // TUI reads `cumulative`); the distinct metrics are below.
+        cumulative: basis,
+        contextEstimate: metrics.contextEstimate,
+        generatedEstimate: metrics.generatedEstimate,
+        cumulativeUsage: metrics.cumulativeUsage,
+        cache: { read: metrics.cacheRead, write: metrics.cacheWrite },
+        budgetBasis: basis,
         softLimit: config.softLimit,
         hardLimit: config.hardLimit,
         percentage,
