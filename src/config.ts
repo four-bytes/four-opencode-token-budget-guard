@@ -7,7 +7,7 @@ export interface Config {
   compactionTrigger: boolean;
 }
 
-function envInt(key: string, fallback: number): number {
+export function envInt(key: string, fallback: number): number {
   const v = process.env[key];
   if (!v) return fallback;
   const n = parseInt(v, 10);

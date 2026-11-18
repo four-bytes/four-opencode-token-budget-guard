@@ -1,5 +1,10 @@
 import { describe, it, expect } from "bun:test";
-import { loadPolicyConfig, runPolicyLoop, type PolicyContext } from "../src/policy-engine";
+import {
+  loadPolicyConfig,
+  runPolicyLoop,
+  type Policy,
+  type PolicyContext,
+} from "../src/policy-engine";
 import { MaxStartTokensPolicy } from "../src/policies/max-start-tokens";
 
 describe("Policy Engine Integration", () => {
@@ -29,5 +34,58 @@ describe("Policy Engine Integration", () => {
     const ctx: PolicyContext = { sessionID: "test", cumulative: 1000 };
     const result = await policy.check(ctx);
     expect(result).toBeNull();
+  });
+
+  it("upgrades a warning to enforce when the policy config says enforce", async () => {
+    const ctx: PolicyContext = { sessionID: "test", cumulative: 50000 };
+    const results = await runPolicyLoop(
+      [new MaxStartTokensPolicy()],
+      ctx,
+      { policies: { max_start_tokens: { enabled: true, enforce: true } } },
+    );
+    expect(results).toHaveLength(1);
+    expect(results[0].level).toBe("enforce");
+  });
+
+  it("keeps warnings non-blocking when enforce is false", async () => {
+    const ctx: PolicyContext = { sessionID: "test", cumulative: 50000 };
+    const results = await runPolicyLoop(
+      [new MaxStartTokensPolicy()],
+      ctx,
+      { policies: { max_start_tokens: { enabled: true, enforce: false } } },
+    );
+    expect(results).toHaveLength(1);
+    expect(results[0].level).toBe("warn");
+  });
+
+  it("fails closed when an enforcing policy throws", async () => {
+    const boom: Policy = {
+      name: "boom",
+      check: async () => {
+        throw new Error("policy crashed");
+      },
+    };
+    const results = await runPolicyLoop(
+      [boom],
+      { sessionID: "test", cumulative: 1 },
+      { policies: { boom: { enabled: true, enforce: true } } },
+    );
+    expect(results).toHaveLength(1);
+    expect(results[0].level).toBe("enforce");
+  });
+
+  it("keeps a throwing warn-only policy non-blocking", async () => {
+    const boom: Policy = {
+      name: "boom",
+      check: async () => {
+        throw new Error("policy crashed");
+      },
+    };
+    const results = await runPolicyLoop(
+      [boom],
+      { sessionID: "test", cumulative: 1 },
+      { policies: { boom: { enabled: true, enforce: false } } },
+    );
+    expect(results[0].level).toBe("warn");
   });
 });

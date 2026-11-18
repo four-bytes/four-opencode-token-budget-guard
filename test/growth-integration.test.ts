@@ -83,7 +83,9 @@ describe("growth alarm integration (both hooks)", () => {
 
     const sessionID = `integration-${Date.now()}`;
 
-    // 15 turns, each adding 14k tokens (56k chars) of assistant output.
+    // 15 turns, each adding 14k tokens (56k chars) of assistant output. Each
+    // turn's assistant text is a separate part (unique id), as opencode emits
+    // it — reusing the same id would (correctly) REPLACE, not accumulate.
     for (let turn = 1; turn <= 15; turn++) {
       await (chatMessage as (i: unknown) => Promise<void>)({ sessionID, agent: "explore" });
       await (eventHook as (i: unknown) => Promise<void>)({
@@ -91,7 +93,7 @@ describe("growth alarm integration (both hooks)", () => {
           type: "message.part.updated",
           properties: {
             sessionID,
-            part: { type: "text", text: "x".repeat(56_000) },
+            part: { id: `part-${turn}`, type: "text", text: "x".repeat(56_000) },
           },
         },
       });

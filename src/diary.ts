@@ -8,6 +8,14 @@ export interface DiaryEntry {
   cumulative: number;
   softLimit: number;
   hardLimit: number;
+  /** Why the entry was written: ordinary turn, a limit hit, or policy enforce. */
+  reason?: "turn" | "limit_exceeded" | "policy_enforce";
+  /** Distinct metrics — present on entries written by the metrics-aware guard. */
+  contextEstimate?: number;
+  generatedEstimate?: number;
+  cumulativeUsage?: number;
+  cacheRead?: number;
+  cacheWrite?: number;
 }
 
 function todayFile(diaryDir: string): string {

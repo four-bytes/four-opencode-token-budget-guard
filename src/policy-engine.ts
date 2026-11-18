@@ -55,12 +55,20 @@ export async function runPolicyLoop(
     try {
       const result = await policy.check(ctx);
       if (result) {
-        results.push(result);
+        // The `enforce` config flag upgrades any non-ok result to a blocking
+        // enforcement (policies themselves only report the finding).
+        results.push(
+          pConf.enforce && result.level !== "ok"
+            ? { ...result, level: "enforce" }
+            : result,
+        );
       }
     } catch (err) {
+      // `enforce` must fail closed: a crashing policy is itself a blocking
+      // finding, otherwise a broken policy silently disables enforcement.
       results.push({
         name: policy.name,
-        level: "warn",
+        level: pConf.enforce ? "enforce" : "warn",
         message: `Policy error: ${err}`,
       });
     }

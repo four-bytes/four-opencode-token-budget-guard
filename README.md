@@ -27,6 +27,8 @@ Environment variables:
 | `FOUR_TBG_SOFT_LIMIT` | `8000` | Warning threshold (tokens) |
 | `FOUR_TBG_HARD_LIMIT` | `16000` | Cancellation limit (tokens) |
 | `FOUR_TBG_ENABLED` | `true` | Enable/disable |
+| `FOUR_TBG_MAX_SESSIONS` | `1000` | Max tracked sessions before LRU eviction |
+| `FOUR_TBG_SESSION_TTL_MS` | `604800000` | Idle TTL (ms) after which session metrics are dropped (7 days) |
 
 ## Per-agent budgets & context-growth alarm
 
