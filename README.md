@@ -30,6 +30,11 @@ Environment variables:
 | `FOUR_TBG_MAX_SESSIONS` | `1000` | Max tracked sessions before LRU eviction |
 | `FOUR_TBG_SESSION_TTL_MS` | `604800000` | Idle TTL (ms) after which session metrics are dropped (7 days) |
 
+> **Compaction is the curator's job.** Context compaction is handled by the
+> context-curator plugin — its `autoTokenThreshold` fires first. This guard does
+> not trigger compaction; it only warns at `softLimit` and cancels the request at
+> `hardLimit` as the fallback.
+
 ## Per-agent budgets & context-growth alarm
 
 Per-turn budgets are resolved **per agent** from `opencode.json` / `opencode.jsonc`

@@ -8,7 +8,6 @@ const config: Config = {
   hardLimit: 2_000,
   diaryDir: "",
   enabled: true,
-  compactionTrigger: false,
 };
 
 async function run(metrics: MetricsTracker, sessionID: string) {
