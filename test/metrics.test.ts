@@ -67,7 +67,7 @@ describe("MetricsTracker — distinct metrics", () => {
     expect(got.cumulativeUsage).toBe(162); // 100 + 20 + 5 + 30 + 7
     expect(got.cacheRead).toBe(30);
     expect(got.cacheWrite).toBe(7);
-    expect(got.contextUsage).toBe(162);
+    expect(got.contextUsage).toBe(100); // input only — output/reasoning/cache are not context
   });
 
   it("deduplicates repeated step-finish updates for the same part id", () => {
@@ -84,7 +84,7 @@ describe("MetricsTracker — distinct metrics", () => {
     m.onStepFinish("s1", "step-2", { input: 150, output: 20 });
     const got = m.get("s1");
     expect(got.cumulativeUsage).toBe(280); // 110 + 170
-    expect(got.contextUsage).toBe(170); // latest step, not the sum
+    expect(got.contextUsage).toBe(150); // latest step's input, not the sum
   });
 
   it("takes cache metrics and context size from assistant message updates", () => {
@@ -96,7 +96,7 @@ describe("MetricsTracker — distinct metrics", () => {
       cache: { read: 50, write: 5 },
     });
     const got = m.get("s1");
-    expect(got.contextUsage).toBe(295);
+    expect(got.contextUsage).toBe(200); // input only
     expect(got.cacheRead).toBe(50);
     expect(got.cacheWrite).toBe(5);
     expect(got.cumulativeUsage).toBe(0); // never double-counts step usage

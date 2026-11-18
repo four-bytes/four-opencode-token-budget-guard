@@ -24,7 +24,8 @@
  *                         (deduplicated by step-finish part id).
  * - `cacheRead/Write`   — authoritative cache metrics from the latest usage.
  * - `contextUsage`      — authoritative size of the latest request context
- *                         (input + output + reasoning + cache), 0 until known.
+ *                         (prompt/input tokens only — which already include
+ *                         cached reads/writes), 0 until known.
  */
 
 export interface UsageTokens {
@@ -48,7 +49,7 @@ export interface SessionMetrics {
   cacheRead: number;
   /** Authoritative cache write tokens from the latest usage report. */
   cacheWrite: number;
-  /** Authoritative current context size from the latest usage report (0 = unknown). */
+  /** Authoritative current context size (input/prompt tokens) from the latest usage report (0 = unknown). */
   contextUsage: number;
 }
 
@@ -77,7 +78,12 @@ function estimateChars(chars: number): number {
   return chars <= 0 ? 0 : Math.ceil(chars / 4);
 }
 
-/** Total tokens of a usage report: input + output + reasoning + cache read/write. */
+/**
+ * Total token activity of a usage report: input + output + reasoning +
+ * cache read/write. Mirrors opencode's `TokenUsage.total`. This is NOT the
+ * context size — the context window fills from `input` alone (which already
+ * includes cached reads/writes), so budget checks must use `input`, not this.
+ */
 export function totalTokens(tokens: UsageTokens | undefined): number {
   if (!tokens) return 0;
   return (
@@ -245,7 +251,10 @@ export class MetricsTracker {
     s.cumulativeUsage += total;
     s.cacheRead = safe(tokens?.cache?.read);
     s.cacheWrite = safe(tokens?.cache?.write);
-    if (total > 0) s.contextUsage = total;
+    // Context size = prompt/input tokens only: output/reasoning are generated,
+    // and cache read/write are already included in `input`.
+    const input = safe(tokens?.input);
+    if (input > 0) s.contextUsage = input;
     return true;
   }
 
@@ -259,7 +268,7 @@ export class MetricsTracker {
     const s = this.state(sessionID);
     s.cacheRead = safe(tokens.cache?.read);
     s.cacheWrite = safe(tokens.cache?.write);
-    const total = totalTokens(tokens);
-    if (total > 0) s.contextUsage = total;
+    const input = safe(tokens.input);
+    if (input > 0) s.contextUsage = input;
   }
 }

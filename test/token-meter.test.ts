@@ -36,9 +36,9 @@ describe("token_meter_status tool", () => {
     expect(out.generatedEstimate).toBe(20);
     expect(out.cumulativeUsage).toBe(680);
     expect(out.cache).toEqual({ read: 100, write: 20 });
-    expect(out.budgetBasis).toBe(680);
+    expect(out.budgetBasis).toBe(500); // input only
     // Backward-compatible alias for the enforced basis.
-    expect(out.cumulative).toBe(680);
+    expect(out.cumulative).toBe(500); // input only
     expect(out.status).toBe("below_soft");
   });
 
