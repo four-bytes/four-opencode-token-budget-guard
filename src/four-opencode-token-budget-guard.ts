@@ -286,10 +286,6 @@ export const FourTokenBudgetGuardPlugin: Plugin = async (ctx) => {
             });
           }
 
-          if (config.compactionTrigger) {
-            process.env.CC_COMPACTION_TRIGGER = "true";
-          }
-
           logDebugEvent("limit.exceeded", {
             limitType: isHard ? "hard" : "soft",
             sessionID,
@@ -318,9 +314,6 @@ export const FourTokenBudgetGuardPlugin: Plugin = async (ctx) => {
 
         for (const result of policyResults) {
           if (result.level === "enforce") {
-            if (config.compactionTrigger) {
-              process.env.CC_COMPACTION_TRIGGER = "true";
-            }
             await maybeWriteDiary("policy_enforce", sessionID, "pre-request", basis, true);
             const policyLimit = result.limit ?? config.hardLimit;
             logDebugEvent("policy.enforce", {

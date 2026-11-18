@@ -8,7 +8,6 @@ const config: Config = {
   hardLimit: 200,
   diaryDir: "",
   enabled: true,
-  compactionTrigger: false,
 };
 
 interface Call {
