@@ -1,5 +1,3 @@
-import { estimateTokens } from "./tokens.js";
-
 /**
  * Token measurement for a session.
  *
@@ -17,8 +15,11 @@ import { estimateTokens } from "./tokens.js";
  * This tracker keeps those values distinct and never double-counts:
  * - `contextEstimate`   — chars/4 estimate of the current part texts, keyed by
  *                         part id so a full-text update REPLACES the old value.
+ *                         Raw character counts are stored per part and the
+ *                         token estimate is derived from that total, so
+ *                         per-chunk rounding cannot inflate it.
  * - `generatedEstimate` — chars/4 estimate of assistant text deltas (monotonic,
- *                         added once per delta).
+ *                         derived from the accumulated raw character count).
  * - `cumulativeUsage`   — authoritative token total summed over completed steps
  *                         (deduplicated by step-finish part id).
  * - `cacheRead/Write`   — authoritative cache metrics from the latest usage.
@@ -71,6 +72,11 @@ function safe(value: unknown): number {
     : 0;
 }
 
+/** chars/4 heuristic on a character count (no string allocation). */
+function estimateChars(chars: number): number {
+  return chars <= 0 ? 0 : Math.ceil(chars / 4);
+}
+
 /** Total tokens of a usage report: input + output + reasoning + cache read/write. */
 export function totalTokens(tokens: UsageTokens | undefined): number {
   if (!tokens) return 0;
@@ -96,12 +102,16 @@ export function budgetBasis(metrics: SessionMetrics): number {
 
 export class MetricsTracker {
   private metrics = new Map<string, SessionMetrics>();
-  /** sessionID → partID → estimated tokens (so an update replaces, not adds). */
-  private partTokens = new Map<string, Map<string, number>>();
+  /** sessionID → partID → raw character count (so an update replaces, not adds). */
+  private partChars = new Map<string, Map<string, number>>();
+  /** sessionID → raw characters generated via text deltas (monotonic). */
+  private generatedChars = new Map<string, number>();
   /** sessionID → step-finish part ids already counted. */
   private seenSteps = new Map<string, Set<string>>();
-  /** sessionID → last write, for TTL/LRU eviction. */
+  /** sessionID → last write timestamp, for TTL eviction. */
   private lastAccess = new Map<string, number>();
+  /** sessionID → recency order (Map insertion order, most recent last). */
+  private accessOrder = new Map<string, true>();
 
   constructor(
     private readonly maxSessions = DEFAULT_MAX_SESSIONS,
@@ -110,9 +120,17 @@ export class MetricsTracker {
 
   private deleteSession(sessionID: string): void {
     this.metrics.delete(sessionID);
-    this.partTokens.delete(sessionID);
+    this.partChars.delete(sessionID);
+    this.generatedChars.delete(sessionID);
     this.seenSteps.delete(sessionID);
     this.lastAccess.delete(sessionID);
+    this.accessOrder.delete(sessionID);
+  }
+
+  /** True when the session's last write is older than the configured TTL. */
+  private expired(sessionID: string): boolean {
+    const ts = this.lastAccess.get(sessionID);
+    return ts !== undefined && Date.now() - ts > this.ttlMs;
   }
 
   private evict(): void {
@@ -121,21 +139,20 @@ export class MetricsTracker {
       if (now - ts > this.ttlMs) this.deleteSession(id);
     }
     while (this.metrics.size >= this.maxSessions) {
-      let oldestID: string | null = null;
-      let oldest = Infinity;
-      for (const [id, ts] of this.lastAccess) {
-        if (ts < oldest) {
-          oldest = ts;
-          oldestID = id;
-        }
-      }
-      if (!oldestID) break;
+      const oldestID = this.accessOrder.keys().next().value;
+      if (oldestID === undefined) break;
       this.deleteSession(oldestID);
     }
   }
 
   private state(sessionID: string): SessionMetrics {
     let s = this.metrics.get(sessionID);
+    // Stale metrics must never be reused: an expired entry is dropped and
+    // recreated so old usage cannot keep blocking requests.
+    if (s && this.expired(sessionID)) {
+      this.deleteSession(sessionID);
+      s = undefined;
+    }
     if (!s) {
       // Only evict when a genuinely new session is added, so updating a known
       // session can never evict its own accumulated metrics.
@@ -144,31 +161,47 @@ export class MetricsTracker {
       this.metrics.set(sessionID, s);
     }
     this.lastAccess.set(sessionID, Date.now());
+    // Re-insert to move this session to the most-recent end of the LRU order.
+    this.accessOrder.delete(sessionID);
+    this.accessOrder.set(sessionID, true);
     return s;
   }
 
   private parts(sessionID: string): Map<string, number> {
-    let p = this.partTokens.get(sessionID);
+    let p = this.partChars.get(sessionID);
     if (!p) {
       p = new Map();
-      this.partTokens.set(sessionID, p);
+      this.partChars.set(sessionID, p);
     }
     return p;
   }
 
   get(sessionID: string): SessionMetrics {
+    // TTL applies on read too: a stale session must not report old usage.
+    if (this.expired(sessionID)) this.deleteSession(sessionID);
     return { ...(this.metrics.get(sessionID) ?? EMPTY_METRICS) };
   }
 
   /** A streamed text chunk (`message.part.delta`). Added exactly once. */
   onTextDelta(sessionID: string, partID: string, delta: string): void {
-    const tokens = estimateTokens(delta);
-    if (tokens === 0) return;
+    if (delta.length === 0) return;
+    // Touch state first: it may drop an expired session (including the old
+    // per-part counters) before this delta is applied.
     const s = this.state(sessionID);
-    s.generatedEstimate += tokens;
     const parts = this.parts(sessionID);
-    parts.set(partID, (parts.get(partID) ?? 0) + tokens);
-    s.contextEstimate += tokens;
+    const previousChars = parts.get(partID) ?? 0;
+    const nextChars = previousChars + delta.length;
+    parts.set(partID, nextChars);
+
+    // Derive both estimates from the raw character totals so five 1-char
+    // deltas cost ceil(5/4) = 2 tokens, not 5.
+    s.contextEstimate = Math.max(
+      0,
+      s.contextEstimate + estimateChars(nextChars) - estimateChars(previousChars),
+    );
+    const generated = (this.generatedChars.get(sessionID) ?? 0) + delta.length;
+    this.generatedChars.set(sessionID, generated);
+    s.generatedEstimate = estimateChars(generated);
   }
 
   /**
@@ -176,12 +209,17 @@ export class MetricsTracker {
    * accumulated text, so the part's contribution is REPLACED — never added.
    */
   onTextPartUpdated(sessionID: string, partID: string, text: string): void {
-    const parts = this.parts(sessionID);
-    const previous = parts.get(partID) ?? 0;
-    const next = estimateTokens(text);
-    parts.set(partID, next);
+    // Touch state first: it may drop an expired session (including the old
+    // per-part counters) before this full-text update is applied.
     const s = this.state(sessionID);
-    s.contextEstimate = Math.max(0, s.contextEstimate + next - previous);
+    const parts = this.parts(sessionID);
+    const previousChars = parts.get(partID) ?? 0;
+    const nextChars = text.length;
+    parts.set(partID, nextChars);
+    s.contextEstimate = Math.max(
+      0,
+      s.contextEstimate + estimateChars(nextChars) - estimateChars(previousChars),
+    );
   }
 
   /**

@@ -64,9 +64,11 @@ export async function runPolicyLoop(
         );
       }
     } catch (err) {
+      // `enforce` must fail closed: a crashing policy is itself a blocking
+      // finding, otherwise a broken policy silently disables enforcement.
       results.push({
         name: policy.name,
-        level: "warn",
+        level: pConf.enforce ? "enforce" : "warn",
         message: `Policy error: ${err}`,
       });
     }

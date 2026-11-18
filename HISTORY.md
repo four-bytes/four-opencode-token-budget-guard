@@ -17,12 +17,20 @@
   handler now rethrows `TokenBudgetExceededError`; a policy configured with
   `enforce` also blocks.
 - Warnings and diary writes are debounced (#76): toasts at most once per
-  60 s per session+level; ordinary diary writes at most once per 30 s and per
-  5 000-token change, while hard-limit hits are always recorded.
+  60 s per session+level. Ordinary diary writes are skipped only when the last
+  write is younger than 30 s AND the budget basis moved by less than 5 000
+  tokens, so a write goes through as soon as either 30 s elapsed or the basis
+  changed by ≥5 000 tokens; hard-limit hits are always recorded.
 - Diary entries and their debounce state now record the full budget basis,
   including the incoming request tokens that triggered a hard block (#76).
 - Session metrics stay bounded via `FOUR_TBG_MAX_SESSIONS` (default 1000) and
-  `FOUR_TBG_SESSION_TTL_MS` (default 7 days) (#76).
+  `FOUR_TBG_SESSION_TTL_MS` (default 7 days); the TTL is also applied on read,
+  so a stale session cannot keep blocking requests (#76).
+- Text estimates are derived from accumulated raw character counts instead of
+  rounding every delta, so streaming cannot inflate the estimate and then drop
+  it when the full text arrives (#76).
+- A policy configured with `enforce` fails closed even when the policy throws,
+  and its block names the policy's own limit instead of the hard limit (#76).
 
 ## v0.6.4 — 2026-09-23
 

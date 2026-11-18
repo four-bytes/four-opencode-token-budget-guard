@@ -7,9 +7,15 @@ export class TokenBudgetExceededError extends Error {
   readonly cumulative: number;
   readonly hardLimit: number;
 
-  constructor(sessionID: string, cumulative: number, hardLimit: number) {
+  constructor(
+    sessionID: string,
+    cumulative: number,
+    hardLimit: number,
+    /** What was exceeded, so a policy block does not claim the hard limit. */
+    reason = "HARD limit",
+  ) {
     super(
-      `Token budget HARD limit exceeded for session=${sessionID}: ${cumulative} > ${hardLimit}. Request canceled.`,
+      `Token budget ${reason} exceeded for session=${sessionID}: ${cumulative} > ${hardLimit}. Request canceled.`,
     );
     this.name = "TokenBudgetExceededError";
     this.sessionID = sessionID;

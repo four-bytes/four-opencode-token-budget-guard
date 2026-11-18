@@ -107,7 +107,11 @@ export const FourTokenBudgetGuardPlugin: Plugin = async (ctx) => {
     duration?: number;
   }): void {
     try {
-      ctx.client.tui.showToast({ body: { ...body, duration: body.duration ?? 7000 } });
+      // showToast returns a promise and may reject asynchronously; swallow the
+      // rejection too, not just synchronous throws.
+      void Promise.resolve(
+        ctx.client.tui.showToast({ body: { ...body, duration: body.duration ?? 7000 } }),
+      ).catch(() => {});
     } catch {
       // Never let a UI failure break measurement or enforcement.
     }
@@ -230,7 +234,13 @@ export const FourTokenBudgetGuardPlugin: Plugin = async (ctx) => {
    * (compaction can create a new ID while the metrics belong to the old one).
    */
   function trackSession(sessionID: string): void {
-    if (sessionID === currentSessionID) return;
+    if (!sessionID || sessionID === currentSessionID) return;
+    // An empty currentSessionID is uninitialized, not "no focus": adopt the
+    // first session even when its first event already contains tokens.
+    if (currentSessionID === "") {
+      currentSessionID = sessionID;
+      return;
+    }
     const m = metrics.get(sessionID);
     const untouched =
       m.contextEstimate === 0 &&
@@ -312,16 +322,22 @@ export const FourTokenBudgetGuardPlugin: Plugin = async (ctx) => {
               process.env.CC_COMPACTION_TRIGGER = "true";
             }
             await maybeWriteDiary("policy_enforce", sessionID, "pre-request", basis, true);
+            const policyLimit = result.limit ?? config.hardLimit;
             logDebugEvent("policy.enforce", {
               policyName: result.name,
               message: result.message,
               sessionID,
               budgetBasis: basis,
               softLimit: config.softLimit,
-              hardLimit: config.hardLimit,
+              hardLimit: policyLimit,
               action: "throw",
             });
-            throw new TokenBudgetExceededError(sessionID, basis, config.hardLimit);
+            throw new TokenBudgetExceededError(
+              sessionID,
+              basis,
+              policyLimit,
+              `policy "${result.name}" limit`,
+            );
           }
           if (result.level === "warn" && shouldWarn(`${sessionID}:policy:${result.name}`)) {
             safeToast({
@@ -390,8 +406,10 @@ export const FourTokenBudgetGuardPlugin: Plugin = async (ctx) => {
           }
 
           const tokens = estimateTokens(delta);
-          metrics.onTextDelta(sessionID, partID, delta);
+          // Adopt the session before its metrics are written, so the
+          // "untouched" check can still succeed on the first event.
           trackSession(sessionID);
+          metrics.onTextDelta(sessionID, partID, delta);
 
           const turnTokens = turnTracker.addTokens(sessionID, tokens);
           checkPerTurnThreshold(sessionID, turnTokens);
@@ -451,8 +469,8 @@ export const FourTokenBudgetGuardPlugin: Plugin = async (ctx) => {
           ) {
             return;
           }
-          metrics.onAssistantMessage(info.sessionID, info.tokens);
           trackSession(info.sessionID);
+          metrics.onAssistantMessage(info.sessionID, info.tokens);
           busPublisher
             .publish(info.sessionID, metrics.get(info.sessionID), config)
             .catch(() => {});

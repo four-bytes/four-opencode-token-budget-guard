@@ -5,7 +5,8 @@ import { budgetBasis, type SessionMetrics } from "./metrics.js";
 export class BusPublisher {
   private bus: BusClient | null = null;
   private lastPublish = 0;
-  private publishInterval = 500; // ms — debounce
+  private lastPublishedStatus: string | undefined;
+  private publishInterval = 500; // ms — debounce between same-status updates
   private reconnecting = false;
   private onWarn: ((message: string, ...args: unknown[]) => void) | undefined;
 
@@ -25,10 +26,6 @@ export class BusPublisher {
   ): Promise<void> {
     if (!this.bus) return;
 
-    const now = Date.now();
-    if (now - this.lastPublish < this.publishInterval) return;
-    this.lastPublish = now;
-
     const basis = budgetBasis(metrics);
     const percentage =
       config.softLimit > 0
@@ -38,6 +35,15 @@ export class BusPublisher {
     let status = "below_soft";
     if (basis >= config.hardLimit) status = "hard_exceeded";
     else if (basis >= config.softLimit) status = "soft_exceeded";
+
+    // Status transitions (notably entering OR leaving hard_exceeded) must never
+    // be dropped by the throttle, or the TUI keeps showing a stale status.
+    // Only repeated same-status updates are throttled.
+    const now = Date.now();
+    const statusChanged = status !== this.lastPublishedStatus;
+    if (!statusChanged && now - this.lastPublish < this.publishInterval) return;
+    this.lastPublish = now;
+    this.lastPublishedStatus = status;
 
     try {
       await this.bus.forService("tbg").forSession(sessionID).publish("status", {

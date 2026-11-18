@@ -130,10 +130,35 @@ describe("MetricsTracker — distinct metrics", () => {
     const m = new MetricsTracker(2, 60_000);
     m.onTextPartUpdated("s1", "p1", "aaaa");
     m.onTextPartUpdated("s2", "p2", "bbbb");
+    // Refresh s1 so s2, not s1, becomes the least-recently-used session.
+    m.onTextPartUpdated("s1", "p1", "aaaa");
     m.onTextPartUpdated("s3", "p3", "cccc");
 
-    expect(m.get("s1").contextEstimate).toBe(0); // oldest evicted
-    expect(m.get("s2").contextEstimate).toBe(1);
+    expect(m.get("s1").contextEstimate).toBe(1); // refreshed, survives
+    expect(m.get("s2").contextEstimate).toBe(0); // least recently used
     expect(m.get("s3").contextEstimate).toBe(1);
+  });
+
+  it("does not let per-chunk rounding inflate the context estimate", () => {
+    // Five 1-char deltas used to cost 5 tokens (ceil per chunk) while the full
+    // text costs 2 — the estimate dropped at text-end and pre-request checks
+    // fired early. Both must agree now.
+    const m = new MetricsTracker();
+    for (let i = 0; i < 5; i++) m.onTextDelta("s1", "p1", "x");
+    expect(m.get("s1").generatedEstimate).toBe(2);
+    expect(m.get("s1").contextEstimate).toBe(2);
+
+    m.onTextPartUpdated("s1", "p1", "xxxxx");
+    expect(m.get("s1").contextEstimate).toBe(2); // no drop at text-end
+  });
+
+  it("drops an expired session on read", async () => {
+    const m = new MetricsTracker(10, 5);
+    m.onStepFinish("s1", "step-1", { input: 500 });
+    expect(m.get("s1").contextUsage).toBe(500);
+
+    await Bun.sleep(15);
+    expect(m.get("s1").contextUsage).toBe(0);
+    expect(m.get("s1").cumulativeUsage).toBe(0);
   });
 });

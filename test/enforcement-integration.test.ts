@@ -189,6 +189,11 @@ describe("pre-request enforcement (integration)", () => {
 
     const err = await captureError(() => chatMessage({ sessionID, agent: "architect" }));
     expect(err).toBeInstanceOf(TokenBudgetExceededError);
+    const policyErr = err as TokenBudgetExceededError;
+    // The block names the policy's own limit, not the (much higher) hard limit.
+    expect(policyErr.cumulative).toBe(500);
+    expect(policyErr.hardLimit).toBe(100);
+    expect(policyErr.message).toContain('policy "max_start_tokens"');
   });
 });
 

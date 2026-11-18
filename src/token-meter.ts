@@ -12,7 +12,12 @@ export interface TokenMeterStatus {
   cumulativeUsage: number;
   /** Authoritative cache tokens from the latest usage report. */
   cache: { read: number; write: number };
-  /** The value the budget guard enforces against. */
+  /**
+   * The value the budget guard enforces against (authoritative context usage,
+   * falling back to the text estimate). Pre-request enforcement additionally
+   * adds the pending user-part tokens of the request being sent; `status` and
+   * `percentage` are derived from `budgetBasis` alone and leave them out.
+   */
   budgetBasis: number;
   /** Backward-compatible alias for `budgetBasis`. */
   cumulative: number;
