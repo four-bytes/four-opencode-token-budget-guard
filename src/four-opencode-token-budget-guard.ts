@@ -1,5 +1,5 @@
 import type { Plugin } from "@opencode-ai/plugin";
-import { loadConfig } from "./config.js";
+import { envInt, loadConfig } from "./config.js";
 import { writeDiaryEntry } from "./diary.js";
 import { estimateTokens } from "./tokens.js";
 import { TokenBudgetExceededError } from "./errors.js";
@@ -24,6 +24,8 @@ import { computeGrowthAlarm, formatSlope } from "./growth.js";
 import { readTopSource } from "./growth-source.js";
 import {
   MetricsTracker,
+  DEFAULT_MAX_SESSIONS,
+  DEFAULT_SESSION_TTL_MS,
   budgetBasis,
   type UsageTokens,
 } from "./metrics.js";
@@ -36,8 +38,12 @@ const busPublisher = new BusPublisher();
 const turnTracker = new TurnTracker();
 
 // Distinct token metrics per session (context estimate, generated estimate,
-// authoritative cumulative usage and cache metrics).
-const metrics = new MetricsTracker();
+// authoritative cumulative usage and cache metrics). Bounded via env, defaults
+// are 1000 sessions / 7 days idle TTL.
+const metrics = new MetricsTracker(
+  envInt("FOUR_TBG_MAX_SESSIONS", DEFAULT_MAX_SESSIONS),
+  envInt("FOUR_TBG_SESSION_TTL_MS", DEFAULT_SESSION_TTL_MS),
+);
 
 // Track current session ID (set on first event)
 let currentSessionID = "";
@@ -111,10 +117,11 @@ export const FourTokenBudgetGuardPlugin: Plugin = async (ctx) => {
     reason: "turn" | "limit_exceeded" | "policy_enforce",
     sessionID: string,
     msgRole: string,
+    /** Budget basis including the incoming request, computed by the caller. */
+    basis: number,
     force = false,
   ): Promise<void> {
     const m = metrics.get(sessionID);
-    const basis = budgetBasis(m);
     const now = Date.now();
     const last = diaryState.get(sessionID);
 
@@ -286,6 +293,7 @@ export const FourTokenBudgetGuardPlugin: Plugin = async (ctx) => {
             "limit_exceeded",
             sessionID,
             "pre-request",
+            basis,
             isHard,
           );
 
@@ -303,7 +311,7 @@ export const FourTokenBudgetGuardPlugin: Plugin = async (ctx) => {
             if (config.compactionTrigger) {
               process.env.CC_COMPACTION_TRIGGER = "true";
             }
-            await maybeWriteDiary("policy_enforce", sessionID, "pre-request", true);
+            await maybeWriteDiary("policy_enforce", sessionID, "pre-request", basis, true);
             logDebugEvent("policy.enforce", {
               policyName: result.name,
               message: result.message,
@@ -339,7 +347,7 @@ export const FourTokenBudgetGuardPlugin: Plugin = async (ctx) => {
         checkSlopeAlarm(sessionID, previousAgent);
         trackSession(sessionID);
 
-        await maybeWriteDiary("turn", sessionID, "pre-request");
+        await maybeWriteDiary("turn", sessionID, "pre-request", basis);
 
         logDebugEvent("limit.below", {
           sessionID,

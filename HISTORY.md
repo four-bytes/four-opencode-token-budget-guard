@@ -19,6 +19,10 @@
 - Warnings and diary writes are debounced (#76): toasts at most once per
   60 s per session+level; ordinary diary writes at most once per 30 s and per
   5 000-token change, while hard-limit hits are always recorded.
+- Diary entries and their debounce state now record the full budget basis,
+  including the incoming request tokens that triggered a hard block (#76).
+- Session metrics stay bounded via `FOUR_TBG_MAX_SESSIONS` (default 1000) and
+  `FOUR_TBG_SESSION_TTL_MS` (default 7 days) (#76).
 
 ## v0.6.4 — 2026-09-23
 

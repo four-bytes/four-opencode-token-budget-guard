@@ -267,4 +267,34 @@ describe("debouncing (integration)", () => {
     expect(entry.msgRole).toBe("pre-request");
     expect(entry.cumulativeUsage).toBe(250);
   });
+
+  it("records the incoming request tokens in a hard-limit diary entry", async () => {
+    tmpDir = setupEnv({ soft: 100, hard: 200 });
+    const toasts: Toast[] = [];
+    const hooks = await FourTokenBudgetGuardPlugin(makeCtx(toasts) as never);
+    const chatMessage = hooks["chat.message"] as ChatHook;
+
+    // No prior event: session metrics are empty, so the basis consists only of
+    // the incoming request (4000 chars ≈ 1000 tokens).
+    const sessionID = `diary-incoming-${Date.now()}`;
+    const err = await captureError(() =>
+      chatMessage(
+        { sessionID, agent: "build" },
+        { parts: [{ type: "text", text: "x".repeat(4_000) }] },
+      ),
+    );
+    expect(err).toBeInstanceOf(TokenBudgetExceededError);
+
+    const diaryDir = join(tmpDir, "four-opencode-token-budget-guard", "diary");
+    const files = readdirSync(diaryDir).filter((f) => f.endsWith(".jsonl"));
+    const lines = files.flatMap((f) =>
+      readFileSync(join(diaryDir, f), "utf-8")
+        .split("\n")
+        .filter((line) => line.trim().length > 0),
+    );
+    expect(lines).toHaveLength(1);
+    const entry = JSON.parse(lines[0]) as { tokensApprox: number; cumulative: number };
+    expect(entry.tokensApprox).toBe(1_000);
+    expect(entry.cumulative).toBe(1_000);
+  });
 });

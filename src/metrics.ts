@@ -51,6 +51,11 @@ export interface SessionMetrics {
   contextUsage: number;
 }
 
+/** Default cap on tracked sessions before LRU eviction kicks in. */
+export const DEFAULT_MAX_SESSIONS = 1_000;
+/** Default idle time after which a session's metrics are dropped. */
+export const DEFAULT_SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
 const EMPTY_METRICS: SessionMetrics = {
   contextEstimate: 0,
   generatedEstimate: 0,
@@ -99,8 +104,8 @@ export class MetricsTracker {
   private lastAccess = new Map<string, number>();
 
   constructor(
-    private readonly maxSessions = 1000,
-    private readonly ttlMs = 7 * 24 * 60 * 60 * 1000,
+    private readonly maxSessions = DEFAULT_MAX_SESSIONS,
+    private readonly ttlMs = DEFAULT_SESSION_TTL_MS,
   ) {}
 
   private deleteSession(sessionID: string): void {
