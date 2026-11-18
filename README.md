@@ -74,10 +74,9 @@ Growth parameters (env → config-file numeric keys in `token_budget_guard` → 
 
 ## Policy Engine
 
-4 policies configurable per session:
+3 guard behaviors:
 
 - **Warn** — Log warning when approaching soft limit
-- **Compaction** — Trigger context compaction at soft limit
 - **Hard Stop** — Cancel request at hard limit
 - **Diary** — Record token statistics to diary file
 
