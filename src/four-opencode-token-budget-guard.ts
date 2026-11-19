@@ -107,13 +107,16 @@ export const FourTokenBudgetGuardPlugin: Plugin = async (ctx) => {
     duration?: number;
   }): void {
     try {
-      // showToast returns a promise and may reject asynchronously; swallow the
-      // rejection too, not just synchronous throws.
+      // showToast returns a promise and may reject asynchronously; surface that
+      // in the debug log instead of swallowing it, so a broken toast is visible.
       void Promise.resolve(
         ctx.client.tui.showToast({ body: { ...body, duration: body.duration ?? 7000 } }),
-      ).catch(() => {});
-    } catch {
-      // Never let a UI failure break measurement or enforcement.
+      ).catch((e) => {
+        logDebugEvent("toast.failed", { error: String(e) });
+      });
+    } catch (e) {
+      // Never let a UI failure break measurement or enforcement, but log it.
+      logDebugEvent("toast.failed", { error: String(e) });
     }
   }
 
@@ -279,10 +282,13 @@ export const FourTokenBudgetGuardPlugin: Plugin = async (ctx) => {
           const level = isHard ? "HARD" : "SOFT";
 
           if (shouldWarn(`${sessionID}:limit:${level}`)) {
+            // Toast is scheduled before any await so the hard-limit throw can
+            // never skip it. HARD is visually distinct and stays up longer.
             safeToast({
               title: "Token Budget ⚠️",
               message: `${level} limit: ${basis} tokens (soft=${config.softLimit}, hard=${config.hardLimit})`,
               variant: isHard ? "error" : "warning",
+              duration: isHard ? 12000 : undefined,
             });
           }
 
@@ -373,6 +379,24 @@ export const FourTokenBudgetGuardPlugin: Plugin = async (ctx) => {
         logDebugEvent("hook.error", {
           hook: "chat.message",
           sessionID,
+          error: String(err),
+        });
+      }
+    },
+
+    // ── Compaction reset ────────────────────────────────────────────────────
+    // After compaction the context is rebuilt, so stale token counts must not
+    // keep the gate firing (which would "kill the context" on the next request).
+    "experimental.session.compacting": async (input) => {
+      try {
+        metrics.reset(input.sessionID);
+        turnTracker.reset(input.sessionID);
+        if (currentSessionID === input.sessionID) currentSessionID = "";
+        logDebugEvent("compaction.reset", { sessionID: input.sessionID });
+      } catch (err) {
+        logDebugEvent("hook.error", {
+          hook: "experimental.session.compacting",
+          sessionID: input.sessionID,
           error: String(err),
         });
       }

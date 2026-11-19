@@ -161,4 +161,31 @@ describe("MetricsTracker — distinct metrics", () => {
     expect(m.get("s1").contextUsage).toBe(0);
     expect(m.get("s1").cumulativeUsage).toBe(0);
   });
+
+  it("reset clears all tracked metrics for a session", () => {
+    const m = new MetricsTracker();
+    m.onTextDelta("s1", "p1", "abcdefgh");
+    m.onStepFinish("s1", "step-1", { input: 500, output: 100 });
+    expect(m.get("s1").contextEstimate).toBeGreaterThan(0);
+    expect(m.get("s1").cumulativeUsage).toBeGreaterThan(0);
+    expect(m.get("s1").contextUsage).toBe(500);
+
+    m.reset("s1");
+
+    const got = m.get("s1");
+    expect(got.contextEstimate).toBe(0);
+    expect(got.cumulativeUsage).toBe(0);
+    expect(got.contextUsage).toBe(0);
+  });
+
+  it("reset only affects the named session", () => {
+    const m = new MetricsTracker();
+    m.onTextDelta("s1", "p1", "abcdefgh");
+    m.onTextDelta("s2", "p1", "abcdefgh");
+
+    m.reset("s1");
+
+    expect(m.get("s1").contextEstimate).toBe(0);
+    expect(m.get("s2").contextEstimate).toBeGreaterThan(0);
+  });
 });

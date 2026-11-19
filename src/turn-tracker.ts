@@ -79,4 +79,12 @@ export class TurnTracker {
   getHistory(sessionID: string): number[] {
     return [...this.state(sessionID).history];
   }
+
+  /**
+   * Drop all turn state for a session. Used after compaction or a new session
+   * so old history cannot skew the slope alarm or per-turn threshold.
+   */
+  reset(sessionID: string): void {
+    this.map.delete(sessionID);
+  }
 }
