@@ -188,6 +188,14 @@ export class MetricsTracker {
     return { ...(this.metrics.get(sessionID) ?? EMPTY_METRICS) };
   }
 
+  /**
+   * Drop all tracked state for a session. Used after compaction or a new
+   * session so stale usage cannot keep firing the budget gate.
+   */
+  reset(sessionID: string): void {
+    this.deleteSession(sessionID);
+  }
+
   /** A streamed text chunk (`message.part.delta`). Added exactly once. */
   onTextDelta(sessionID: string, partID: string, delta: string): void {
     if (delta.length === 0) return;

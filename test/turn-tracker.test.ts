@@ -56,4 +56,33 @@ describe("TurnTracker", () => {
     expect(t.getCurrentTurn("s1")).toBe(100);
     expect(t.getCurrentTurn("s2")).toBe(200);
   });
+
+  it("reset clears the session's turn state (history, turnCount)", () => {
+    const t = new TurnTracker();
+    t.beginTurn("s1", "architect", 0);
+    t.beginTurn("s1", "explore", 1000);
+    t.addTokens("s1", 100);
+    expect(t.getHistory("s1")).toEqual([1000]);
+    expect(t.getTurnNumber("s1")).toBe(2);
+
+    t.reset("s1");
+
+    expect(t.getHistory("s1")).toEqual([]);
+    expect(t.getCurrentTurn("s1")).toBe(0);
+    expect(t.getAgent("s1")).toBeNull();
+    // A deleted session starts over as turn 1.
+    expect(t.getTurnNumber("s1")).toBe(1);
+  });
+
+  it("reset only affects the named session", () => {
+    const t = new TurnTracker();
+    t.beginTurn("s1", "agent", 0);
+    t.beginTurn("s1", "agent", 500);
+    t.addTokens("s2", 200);
+
+    t.reset("s1");
+
+    expect(t.getHistory("s1")).toEqual([]);
+    expect(t.getCurrentTurn("s2")).toBe(200);
+  });
 });
