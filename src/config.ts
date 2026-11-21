@@ -21,8 +21,8 @@ function xdgDataHome(): string {
 
 export function loadConfig(): Config {
   return {
-    softLimit: envInt("FOUR_TBG_SOFT_LIMIT", 50_000),
-    hardLimit: envInt("FOUR_TBG_HARD_LIMIT", 100_000),
+    softLimit: envInt("FOUR_TBG_SOFT_LIMIT", 100_000),
+    hardLimit: envInt("FOUR_TBG_HARD_LIMIT", 200_000),
     diaryDir: `${xdgDataHome()}/four-opencode-token-budget-guard/diary`,
     enabled: process.env.FOUR_TBG_ENABLED !== "false",
   };

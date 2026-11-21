@@ -1,5 +1,17 @@
 # Project Change History
 
+## v0.6.7 — 2026-11-21
+
+### Fixed
+- hard-limit default zu niedrig (100k) — verursachte harte Sperre bei normaler
+  Session; Defaults angehoben (soft 50k→100k, hard 100k→200k, aligned mit
+  `FOUR_TBG_CONTEXT_WINDOW`).
+- Hard-Limit-Block zeigte opaken "server error" — Toast ist jetzt eindeutig dem
+  Guard zuschreibbar und handlungsorientiert.
+
+### Docs
+- README Env-Tabelle korrigiert.
+
 ## v0.6.6 — 2026-11-17
 
 ### Fixed
