@@ -1,5 +1,6 @@
 import type { Plugin } from "@opencode-ai/plugin";
 import { envInt, loadConfig } from "./config.js";
+import { effectiveLimits, resolveModelContextLimit } from "./model-context.js";
 import { writeDiaryEntry } from "./diary.js";
 import { estimateTokens } from "./tokens.js";
 import { TokenBudgetExceededError } from "./errors.js";
@@ -47,6 +48,10 @@ const metrics = new MetricsTracker(
 
 // Track current session ID (set on first event)
 let currentSessionID = "";
+
+// Resolved model context windows, keyed by `providerID/modelID` (`null` when
+// the provider/model is unknown or the lookup failed).
+const modelContextCache = new Map<string, number | null>();
 
 /** Minimum interval between soft/hard warnings for the same key. */
 const WARN_INTERVAL_MS = 60_000;
@@ -252,6 +257,30 @@ export const FourTokenBudgetGuardPlugin: Plugin = async (ctx) => {
     if (untouched) currentSessionID = sessionID;
   }
 
+  /** Context window of the model handling the request, cached per model. */
+  async function resolveModelContext(
+    providerID: string,
+    modelID: string,
+  ): Promise<number | null> {
+    const key = `${providerID}/${modelID}`;
+    if (modelContextCache.has(key)) return modelContextCache.get(key)!;
+    try {
+      const res = await ctx.client.config.providers();
+      const providers = res.data?.providers ?? [];
+      const ctxLimit = resolveModelContextLimit(providers, providerID, modelID);
+      modelContextCache.set(key, ctxLimit);
+      return ctxLimit;
+    } catch (err) {
+      logDebugEvent("model_context.lookup_failed", {
+        providerID,
+        modelID,
+        error: String(err),
+      });
+      modelContextCache.set(key, null);
+      return null;
+    }
+  }
+
   if (!config.enabled) {
     return {};
   }
@@ -277,18 +306,32 @@ export const FourTokenBudgetGuardPlugin: Plugin = async (ctx) => {
         );
         const basis = budgetBasis(metrics.get(sessionID)) + incoming;
 
-        if (basis >= config.softLimit) {
-          const isHard = basis >= config.hardLimit;
+        const modelContext = input.model
+          ? await resolveModelContext(input.model.providerID, input.model.modelID)
+          : null;
+        const limits = effectiveLimits(
+          config.softLimit,
+          config.hardLimit,
+          config.modelMarginPct,
+          modelContext,
+        );
+
+        if (basis >= limits.softLimit) {
+          const isHard = basis >= limits.hardLimit;
           const level = isHard ? "HARD" : "SOFT";
 
           if (shouldWarn(`${sessionID}:limit:${level}`)) {
             // Toast is scheduled before any await so the hard-limit throw can
             // never skip it. HARD is visually distinct and stays up longer.
+            const clampedByModel =
+              modelContext !== null && limits.hardLimit < config.hardLimit;
             safeToast({
               title: isHard ? "Token Budget — Hard Limit ⛔" : "Token Budget — Soft Limit ⚠️",
               message: isHard
-                ? `Token budget guard blocked the request: ${basis} tokens exceed the hard limit of ${config.hardLimit}. Raise FOUR_TBG_HARD_LIMIT or start a new session to continue.`
-                : `Approaching the hard limit: ${basis} tokens (soft=${config.softLimit}, hard=${config.hardLimit}).`,
+                ? clampedByModel
+                  ? `Token budget guard blocked the request: ${basis} tokens exceed the model-aware hard limit of ${limits.hardLimit} (model context ${modelContext}). Compact the session or start a new one.`
+                  : `Token budget guard blocked the request: ${basis} tokens exceed the hard limit of ${limits.hardLimit}. Raise FOUR_TBG_HARD_LIMIT or start a new session to continue.`
+                : `Approaching the hard limit: ${basis} tokens (soft=${limits.softLimit}, hard=${limits.hardLimit}).`,
               variant: isHard ? "error" : "warning",
               duration: isHard ? 12000 : undefined,
             });
@@ -298,8 +341,8 @@ export const FourTokenBudgetGuardPlugin: Plugin = async (ctx) => {
             limitType: isHard ? "hard" : "soft",
             sessionID,
             budgetBasis: basis,
-            softLimit: config.softLimit,
-            hardLimit: config.hardLimit,
+            softLimit: limits.softLimit,
+            hardLimit: limits.hardLimit,
             action: isHard ? "throw" : "return",
           });
 
@@ -312,7 +355,7 @@ export const FourTokenBudgetGuardPlugin: Plugin = async (ctx) => {
           );
 
           if (isHard) {
-            throw new TokenBudgetExceededError(sessionID, basis, config.hardLimit);
+            throw new TokenBudgetExceededError(sessionID, basis, limits.hardLimit);
           }
         }
 
@@ -323,7 +366,7 @@ export const FourTokenBudgetGuardPlugin: Plugin = async (ctx) => {
         for (const result of policyResults) {
           if (result.level === "enforce") {
             await maybeWriteDiary("policy_enforce", sessionID, "pre-request", basis, true);
-            const policyLimit = result.limit ?? config.hardLimit;
+            const policyLimit = result.limit ?? limits.hardLimit;
             logDebugEvent("policy.enforce", {
               policyName: result.name,
               message: result.message,
@@ -369,8 +412,8 @@ export const FourTokenBudgetGuardPlugin: Plugin = async (ctx) => {
         logDebugEvent("limit.below", {
           sessionID,
           budgetBasis: basis,
-          softLimit: config.softLimit,
-          hardLimit: config.hardLimit,
+          softLimit: limits.softLimit,
+          hardLimit: limits.hardLimit,
           action: "continue",
         });
       } catch (err) {

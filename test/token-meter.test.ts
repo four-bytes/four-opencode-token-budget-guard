@@ -6,6 +6,7 @@ import type { Config } from "../src/config";
 const config: Config = {
   softLimit: 1_000,
   hardLimit: 2_000,
+  modelMarginPct: 10,
   diaryDir: "",
   enabled: true,
 };
