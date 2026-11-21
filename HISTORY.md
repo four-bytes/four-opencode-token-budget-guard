@@ -1,5 +1,19 @@
 # Project Change History
 
+## v0.6.8 — 2026-11-21
+
+### Added
+- Model-aware hard limit (#86): das effektive Hard-Limit wird auf das
+  Context-Window des angefragten Modells geklemmt —
+  `hard = min(configuredHard, max(1, floor(modelContext * (100 - marginPct) / 100)))`,
+  `soft = min(configuredSoft, hard)`. Unbekannte Modelle fallen auf die
+  konfigurierten Werte zurück; das Diary dokumentiert weiterhin die
+  konfigurierten Limits.
+
+### Changed
+- Config `modelMarginPct` + ENV `FOUR_TBG_MODEL_MARGIN_PCT` (Default 10,
+  gültig 0–90).
+
 ## v0.6.7 — 2026-11-21
 
 ### Fixed
