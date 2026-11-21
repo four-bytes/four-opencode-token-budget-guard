@@ -219,7 +219,9 @@ describe("debouncing (integration)", () => {
     await chatMessage({ sessionID, agent: "build" });
     await chatMessage({ sessionID, agent: "build" });
 
-    const budgetWarnings = toasts.filter((t) => t.body.title === "Token Budget ⚠️");
+    const budgetWarnings = toasts.filter(
+      (t) => t.body.title === "Token Budget — Soft Limit ⚠️",
+    );
     expect(budgetWarnings).toHaveLength(1);
   });
 

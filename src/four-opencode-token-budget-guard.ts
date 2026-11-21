@@ -285,8 +285,10 @@ export const FourTokenBudgetGuardPlugin: Plugin = async (ctx) => {
             // Toast is scheduled before any await so the hard-limit throw can
             // never skip it. HARD is visually distinct and stays up longer.
             safeToast({
-              title: "Token Budget ⚠️",
-              message: `${level} limit: ${basis} tokens (soft=${config.softLimit}, hard=${config.hardLimit})`,
+              title: isHard ? "Token Budget — Hard Limit ⛔" : "Token Budget — Soft Limit ⚠️",
+              message: isHard
+                ? `Token budget guard blocked the request: ${basis} tokens exceed the hard limit of ${config.hardLimit}. Raise FOUR_TBG_HARD_LIMIT or start a new session to continue.`
+                : `Approaching the hard limit: ${basis} tokens (soft=${config.softLimit}, hard=${config.hardLimit}).`,
               variant: isHard ? "error" : "warning",
               duration: isHard ? 12000 : undefined,
             });
