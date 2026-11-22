@@ -27,14 +27,19 @@ Environment variables:
 | `FOUR_TBG_SOFT_LIMIT` | `100000` | Warning threshold (tokens) |
 | `FOUR_TBG_HARD_LIMIT` | `200000` | Cancellation limit (tokens) |
 | `FOUR_TBG_MODEL_MARGIN_PCT` | `10` | Percentage of the model context window kept free below the hard limit |
+| `FOUR_TBG_COMPACT_PCT` | `80` | Percentage of the effective hard limit that triggers native compaction (clamped 1–99) |
+| `FOUR_TBG_COMPACT_COOLDOWN_MS` | `60000` | Minimum interval between native compaction triggers per session (ms) |
+| `FOUR_TBG_COMPACT_TIMEOUT_MS` | `30000` | Upper bound for a native `session.summarize()` call (ms) |
 | `FOUR_TBG_ENABLED` | `true` | Enable/disable |
 | `FOUR_TBG_MAX_SESSIONS` | `1000` | Max tracked sessions before LRU eviction |
 | `FOUR_TBG_SESSION_TTL_MS` | `604800000` | Idle TTL (ms) after which session metrics are dropped (7 days) |
 
-> **Compaction is the curator's job.** Context compaction is handled by the
-> context-curator plugin — its `autoTokenThreshold` fires first. This guard does
-> not trigger compaction; it only warns at `softLimit` and cancels the request at
-> `hardLimit` as the fallback.
+> **Escalation ladder.** Below `FOUR_TBG_COMPACT_PCT` of the effective hard limit
+> the guard stays quiet. At that threshold it triggers opencode's native
+> compaction (`session.summarize()`, the same call as `/compact`) for root
+> sessions only, bounded by the cooldown and timeout above. At `softLimit` it
+> warns, and at `hardLimit` it cancels the request as the last resort. The guard
+> does not run its own pruning engine.
 >
 > The effective hard limit is clamped to the context window of the model handling
 > the request (minus `FOUR_TBG_MODEL_MARGIN_PCT` percent); the soft limit never

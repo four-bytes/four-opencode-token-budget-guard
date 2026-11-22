@@ -1,30 +1,49 @@
 # Project Change History
 
+## v0.6.9 — 2026-11-21
+
+### Added
+- Native compaction trigger migrated from context-curator (#90): at
+  `FOUR_TBG_COMPACT_PCT`% of the effective hard limit, opencode's native
+  `session.summarize()` (same as `/compact`) is triggered fire-and-forget for
+  root sessions. Cooldown (`FOUR_TBG_COMPACT_COOLDOWN_MS`) and timeout
+  (`FOUR_TBG_COMPACT_TIMEOUT_MS`) prevent retry storms and hangs; child
+  sessions are skipped.
+- Config `compactPct` / `compactCooldownMs` / `compactTimeoutMs` with ENV
+  `FOUR_TBG_COMPACT_PCT` (default 80, range 1–99),
+  `FOUR_TBG_COMPACT_COOLDOWN_MS` (default 60000) and
+  `FOUR_TBG_COMPACT_TIMEOUT_MS` (default 30000).
+- New modules `src/compaction-trigger.ts` (`shouldTriggerCompaction`,
+  `withTimeout`) and tests in `test/compaction-trigger.test.ts`.
+
+### Notes
+- The context-curator's own pruning engine and signal protocol were
+  intentionally NOT adopted — only the native summarize trigger.
+
 ## v0.6.8 — 2026-11-21
 
 ### Added
-- Model-aware hard limit (#86): das effektive Hard-Limit wird auf das
-  Context-Window des angefragten Modells geklemmt —
+- Model-aware hard limit (#86): the effective hard limit is clamped to the
+  context window of the requested model —
   `hard = min(configuredHard, max(1, floor(modelContext * (100 - marginPct) / 100)))`,
-  `soft = min(configuredSoft, hard)`. Unbekannte Modelle fallen auf die
-  konfigurierten Werte zurück; das Diary dokumentiert weiterhin die
-  konfigurierten Limits.
+  `soft = min(configuredSoft, hard)`. Unknown models fall back to the
+  configured values; the diary keeps documenting the configured limits.
 
 ### Changed
-- Config `modelMarginPct` + ENV `FOUR_TBG_MODEL_MARGIN_PCT` (Default 10,
-  gültig 0–90).
+- Config `modelMarginPct` + ENV `FOUR_TBG_MODEL_MARGIN_PCT` (default 10,
+  range 0–90).
 
 ## v0.6.7 — 2026-11-21
 
 ### Fixed
-- hard-limit default zu niedrig (100k) — verursachte harte Sperre bei normaler
-  Session; Defaults angehoben (soft 50k→100k, hard 100k→200k, aligned mit
+- Hard-limit default too low (100k) — caused a hard block in normal sessions;
+  defaults raised (soft 50k→100k, hard 100k→200k, aligned with
   `FOUR_TBG_CONTEXT_WINDOW`).
-- Hard-Limit-Block zeigte opaken "server error" — Toast ist jetzt eindeutig dem
-  Guard zuschreibbar und handlungsorientiert.
+- Hard-limit block surfaced an opaque "server error" — toast is now clearly
+  attributable to the guard and actionable.
 
 ### Docs
-- README Env-Tabelle korrigiert.
+- README env table corrected.
 
 ## v0.6.6 — 2026-11-17
 

@@ -7,6 +7,9 @@ const config: Config = {
   softLimit: 1_000,
   hardLimit: 2_000,
   modelMarginPct: 10,
+  compactPct: 80,
+  compactCooldownMs: 60_000,
+  compactTimeoutMs: 30_000,
   diaryDir: "",
   enabled: true,
 };
