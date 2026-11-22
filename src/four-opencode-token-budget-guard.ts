@@ -3,6 +3,10 @@ import { envInt, loadConfig } from "./config.js";
 import { effectiveLimits, resolveModelContextLimit } from "./model-context.js";
 import { writeDiaryEntry } from "./diary.js";
 import { estimateTokens } from "./tokens.js";
+import {
+  shouldTriggerCompaction,
+  withTimeout,
+} from "./compaction-trigger.js";
 import { TokenBudgetExceededError } from "./errors.js";
 import { logDebugEvent } from "./debug-logger.js";
 import {
@@ -52,6 +56,15 @@ let currentSessionID = "";
 // Resolved model context windows, keyed by `providerID/modelID` (`null` when
 // the provider/model is unknown or the lookup failed).
 const modelContextCache = new Map<string, number | null>();
+
+// Last native-compaction trigger per session (epoch ms). Also doubles as the
+// in-flight guard: set synchronously before the summarize call so a
+// re-entrant request cannot start a second summarize.
+const lastCompactionTs = new Map<string, number>();
+
+// Session → is-child flag. `parentID` never changes for a session, so the
+// lookup is cached per session.
+const childSessionCache = new Map<string, boolean>();
 
 /** Minimum interval between soft/hard warnings for the same key. */
 const WARN_INTERVAL_MS = 60_000;
@@ -281,6 +294,77 @@ export const FourTokenBudgetGuardPlugin: Plugin = async (ctx) => {
     }
   }
 
+  /**
+   * True for child/subagent sessions (non-empty `parentID`). Native summarize
+   * kills a child session, so compaction may only run for a root session.
+   * Unresolvable sessions fall back to root behaviour and are not cached.
+   */
+  async function isChildSession(sessionID: string): Promise<boolean> {
+    if (!sessionID || sessionID === "unknown" || sessionID === "default") {
+      return false;
+    }
+    const cached = childSessionCache.get(sessionID);
+    if (cached !== undefined) return cached;
+    try {
+      const res = await ctx.client.session.get({
+        path: { id: sessionID },
+        query: { directory: process.cwd() },
+        throwOnError: true,
+      });
+      const parentID = (res as { data?: { parentID?: string | null } }).data
+        ?.parentID;
+      const isChild = typeof parentID === "string" && parentID.length > 0;
+      childSessionCache.set(sessionID, isChild);
+      return isChild;
+    } catch (err) {
+      // Unknown target → preserve root behaviour rather than block. Not cached,
+      // so a later lookup can still succeed.
+      logDebugEvent("compaction.parent_lookup_error", {
+        sessionID,
+        error: String(err),
+      });
+      return false;
+    }
+  }
+
+  /**
+   * Trigger opencode's native session compaction (same as the /compact command).
+   * Fire-and-forget from the caller's perspective: it never throws and the
+   * current request continues normally — the compaction acts on later turns.
+   */
+  async function triggerNativeCompaction(
+    sessionID: string,
+    providerID: string,
+    modelID: string,
+  ): Promise<void> {
+    // Set synchronously before any await: the summarizer's own request
+    // re-enters chat.message while this promise is pending. Marking it here
+    // blocks a second summarize (reentrancy) and starts the cooldown, which is
+    // also kept on failure so a broken summarize cannot retry-storm.
+    lastCompactionTs.set(sessionID, Date.now());
+
+    if (await isChildSession(sessionID)) {
+      logDebugEvent("compaction.skipped_child", { sessionID });
+      return;
+    }
+
+    try {
+      logDebugEvent("compaction.triggered", { sessionID, providerID, modelID });
+      await withTimeout(
+        ctx.client.session.summarize({
+          path: { id: sessionID },
+          query: { directory: process.cwd() },
+          body: { providerID, modelID },
+          throwOnError: true,
+        }),
+        config.compactTimeoutMs,
+        "native session.summarize()",
+      );
+    } catch (err) {
+      logDebugEvent("compaction.error", { sessionID, error: String(err) });
+    }
+  }
+
   if (!config.enabled) {
     return {};
   }
@@ -315,6 +399,33 @@ export const FourTokenBudgetGuardPlugin: Plugin = async (ctx) => {
           config.modelMarginPct,
           modelContext,
         );
+
+        // Native compaction step between soft warning and hard block: once the
+        // basis reaches `compactPct` of the effective hard limit, hand the turn
+        // to opencode's own summarize (fire-and-forget). It acts on FOLLOWING
+        // turns, so the current request proceeds normally.
+        const compactThreshold = Math.floor(
+          (limits.hardLimit * config.compactPct) / 100,
+        );
+        if (
+          basis >= compactThreshold &&
+          basis < limits.hardLimit &&
+          input.model?.providerID &&
+          input.model?.modelID &&
+          shouldTriggerCompaction(
+            basis,
+            limits.hardLimit,
+            config.compactPct,
+            lastCompactionTs.get(sessionID),
+            config.compactCooldownMs,
+          )
+        ) {
+          void triggerNativeCompaction(
+            sessionID,
+            input.model.providerID,
+            input.model.modelID,
+          );
+        }
 
         if (basis >= limits.softLimit) {
           const isHard = basis >= limits.hardLimit;
