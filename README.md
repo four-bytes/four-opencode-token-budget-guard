@@ -26,7 +26,7 @@ Environment variables:
 |----------|---------|-------------|
 | `FOUR_TBG_SOFT_LIMIT` | `100000` | Warning threshold (tokens) |
 | `FOUR_TBG_HARD_LIMIT` | `200000` | Cancellation limit (tokens) |
-| `FOUR_TBG_MODEL_MARGIN_PCT` | `10` | Freigehaltener Anteil des Modell-Context-Windows (%) für die Hard-Limit-Klemmung |
+| `FOUR_TBG_MODEL_MARGIN_PCT` | `10` | Percentage of the model context window kept free below the hard limit |
 | `FOUR_TBG_ENABLED` | `true` | Enable/disable |
 | `FOUR_TBG_MAX_SESSIONS` | `1000` | Max tracked sessions before LRU eviction |
 | `FOUR_TBG_SESSION_TTL_MS` | `604800000` | Idle TTL (ms) after which session metrics are dropped (7 days) |
