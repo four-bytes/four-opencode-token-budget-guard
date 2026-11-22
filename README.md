@@ -71,8 +71,7 @@ boundary) and warns when it grows faster than expected:
 - **soft** — cumulative context grew by more than `growthPct`% over the last
   `growthWindow` turns.
 - **hard** — projected context at the current slope reaches the context window
-  within `projectTurns` turns (names the top pruned source from the
-  context-curator diary, e.g. `· top source: run_tests (41%)`).
+  within `projectTurns` turns.
 
 Growth parameters (env → config-file numeric keys in `token_budget_guard` → defaults):
 
