@@ -1,5 +1,11 @@
 # Project Change History
 
+## v0.6.10 — 2026-11-22
+
+### Removed
+- Dead `src/growth-source.ts` (context-curator diary read) and its test; the
+  Context-Growth hard warning no longer names a "top source" (#92).
+
 ## v0.6.9 — 2026-11-21
 
 ### Added

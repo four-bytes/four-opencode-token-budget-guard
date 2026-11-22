@@ -26,7 +26,6 @@ import {
 } from "./agent-config.js";
 import { TurnTracker } from "./turn-tracker.js";
 import { computeGrowthAlarm, formatSlope } from "./growth.js";
-import { readTopSource } from "./growth-source.js";
 import {
   MetricsTracker,
   DEFAULT_MAX_SESSIONS,
@@ -219,15 +218,12 @@ export const FourTokenBudgetGuardPlugin: Plugin = async (ctx) => {
     if (alarm.hard) {
       const key = `${sessionID}:slope:hard`;
       if (shouldWarn(key)) {
-        const top = readTopSource(sessionID);
-        const cause = top ? ` · top source: ${top.tool} (${top.pct}%)` : "";
-        const message = `context growing ${formatSlope(alarm.hard.slope)}${cause}`;
+        const message = `context growing ${formatSlope(alarm.hard.slope)}`;
         logDebugEvent("growth.hard_alarm", {
           agent: agentLabel,
           sessionID,
           slope: alarm.hard.slope,
           projected: alarm.hard.projected,
-          topSource: top,
         });
         safeToast({ title: "Context Growth ⚠️", message, variant: "error" });
       }
