@@ -1,5 +1,12 @@
 # Project Change History
 
+## v0.6.11 — 2026-11-22
+
+### Added
+- Compaction guidance injected via `experimental.session.compacting`
+  (`output.context`): preserve active task, decisions and recent turns; condense
+  completed issues; truncate long tool logs (#94).
+
 ## v0.6.10 — 2026-11-22
 
 ### Removed

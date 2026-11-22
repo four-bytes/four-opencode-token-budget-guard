@@ -539,8 +539,11 @@ export const FourTokenBudgetGuardPlugin: Plugin = async (ctx) => {
     // ── Compaction reset ────────────────────────────────────────────────────
     // After compaction the context is rebuilt, so stale token counts must not
     // keep the gate firing (which would "kill the context" on the next request).
-    "experimental.session.compacting": async (input) => {
+    "experimental.session.compacting": async (input, output) => {
       try {
+        output.context.push(
+          "Preserve across compaction: the active task, user instructions, decisions, actionable errors, and the recent 5 turns. Condense completed issues. Truncate long tool logs, never assistant instructions.",
+        );
         metrics.reset(input.sessionID);
         turnTracker.reset(input.sessionID);
         if (currentSessionID === input.sessionID) currentSessionID = "";
