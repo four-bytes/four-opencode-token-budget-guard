@@ -266,6 +266,17 @@ export const FourTokenBudgetGuardPlugin: Plugin = async (ctx) => {
     if (untouched) currentSessionID = sessionID;
   }
 
+  /**
+   * Drop all tracked token/turn state for a session (after compaction) so stale
+   * usage cannot keep firing the budget gate or skew the slope alarm. Also drops
+   * the current-session focus so it is re-adopted on the next event.
+   */
+  function resetSessionState(sessionID: string): void {
+    metrics.reset(sessionID);
+    turnTracker.reset(sessionID);
+    if (currentSessionID === sessionID) currentSessionID = "";
+  }
+
   /** Context window of the model handling the request, cached per model. */
   async function resolveModelContext(
     providerID: string,
@@ -346,11 +357,17 @@ export const FourTokenBudgetGuardPlugin: Plugin = async (ctx) => {
 
     try {
       logDebugEvent("compaction.triggered", { sessionID, providerID, modelID });
+      // `auto: true` makes opencode append the synthetic "continue" turn after
+      // the summary, so the session resumes the last task instead of stopping.
+      // The v1 SDK types omit `auto` (the route accepts it), so it is passed as
+      // a plain object rather than an inline literal to avoid excess-property
+      // checking.
+      const body = { providerID, modelID, auto: true };
       await withTimeout(
         ctx.client.session.summarize({
           path: { id: sessionID },
           query: { directory: process.cwd() },
-          body: { providerID, modelID },
+          body,
           throwOnError: true,
         }),
         config.compactTimeoutMs,
@@ -544,13 +561,31 @@ export const FourTokenBudgetGuardPlugin: Plugin = async (ctx) => {
         output.context.push(
           "Preserve across compaction: the active task, user instructions, decisions, actionable errors, and the recent 5 turns. Condense completed issues. Truncate long tool logs, never assistant instructions.",
         );
-        metrics.reset(input.sessionID);
-        turnTracker.reset(input.sessionID);
-        if (currentSessionID === input.sessionID) currentSessionID = "";
+        resetSessionState(input.sessionID);
         logDebugEvent("compaction.reset", { sessionID: input.sessionID });
       } catch (err) {
         logDebugEvent("hook.error", {
           hook: "experimental.session.compacting",
+          sessionID: input.sessionID,
+          error: String(err),
+        });
+      }
+    },
+
+    // ── Post-compaction reset ──────────────────────────────────────────────
+    // `experimental.session.compacting` fires BEFORE the summarizer runs, so its
+    // reset is undone by the summarizer's own usage events (step-finish /
+    // assistant message), which report the OLD context size that is being
+    // summarized away. This hook fires after the summary succeeds and before the
+    // synthetic "continue" turn, so resetting here clears that stale count; the
+    // continue turn then rebuilds a correct post-compaction baseline.
+    "experimental.compaction.autocontinue": async (input) => {
+      try {
+        resetSessionState(input.sessionID);
+        logDebugEvent("compaction.autocontinue_reset", { sessionID: input.sessionID });
+      } catch (err) {
+        logDebugEvent("hook.error", {
+          hook: "experimental.compaction.autocontinue",
           sessionID: input.sessionID,
           error: String(err),
         });
