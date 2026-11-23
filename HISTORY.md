@@ -1,5 +1,16 @@
 # Project Change History
 
+## v0.6.12 — 2026-11-23
+
+### Fixed
+- Native compaction now auto-continues: `session.summarize()` is triggered with
+  `auto: true` so opencode appends the synthetic "continue" turn instead of
+  stopping the session after compacting (#98).
+- Token meter now resets correctly after compaction: metrics are also cleared in
+  the `experimental.compaction.autocontinue` hook (after the summary, before the
+  continue turn), so the summarizer's own usage events no longer leave a stale
+  context count (observed as e.g. 87k/200k right after compacting) (#98).
+
 ## v0.6.11 — 2026-11-22
 
 ### Added
