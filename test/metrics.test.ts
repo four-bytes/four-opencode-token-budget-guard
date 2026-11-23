@@ -67,7 +67,7 @@ describe("MetricsTracker — distinct metrics", () => {
     expect(got.cumulativeUsage).toBe(162); // 100 + 20 + 5 + 30 + 7
     expect(got.cacheRead).toBe(30);
     expect(got.cacheWrite).toBe(7);
-    expect(got.contextUsage).toBe(100); // input only — output/reasoning/cache are not context
+    expect(got.contextUsage).toBe(130); // input (100) + cache.read (30)
   });
 
   it("deduplicates repeated step-finish updates for the same part id", () => {
@@ -96,7 +96,7 @@ describe("MetricsTracker — distinct metrics", () => {
       cache: { read: 50, write: 5 },
     });
     const got = m.get("s1");
-    expect(got.contextUsage).toBe(200); // input only
+    expect(got.contextUsage).toBe(250); // input (200) + cache.read (50)
     expect(got.cacheRead).toBe(50);
     expect(got.cacheWrite).toBe(5);
     expect(got.cumulativeUsage).toBe(0); // never double-counts step usage

@@ -24,8 +24,9 @@
  *                         (deduplicated by step-finish part id).
  * - `cacheRead/Write`   — authoritative cache metrics from the latest usage.
  * - `contextUsage`      — authoritative size of the latest request context
- *                         (prompt/input tokens only — which already include
- *                         cached reads/writes), 0 until known.
+ *                         (prompt/input tokens plus cached reads, since DeepSeek
+ *                         reports the cached prefix separately from `input`),
+ *                         0 until known.
  */
 
 export interface UsageTokens {
@@ -49,7 +50,7 @@ export interface SessionMetrics {
   cacheRead: number;
   /** Authoritative cache write tokens from the latest usage report. */
   cacheWrite: number;
-  /** Authoritative current context size (input/prompt tokens) from the latest usage report (0 = unknown). */
+  /** Authoritative current context size (prompt/input + cached reads) from the latest usage report (0 = unknown). */
   contextUsage: number;
 }
 
@@ -81,8 +82,9 @@ function estimateChars(chars: number): number {
 /**
  * Total token activity of a usage report: input + output + reasoning +
  * cache read/write. Mirrors opencode's `TokenUsage.total`. This is NOT the
- * context size — the context window fills from `input` alone (which already
- * includes cached reads/writes), so budget checks must use `input`, not this.
+ * context size — the context window fills from `input` plus cached reads
+ * (DeepSeek reports the cached prefix separately), so budget checks must use
+ * `contextUsage`, not this.
  */
 export function totalTokens(tokens: UsageTokens | undefined): number {
   if (!tokens) return 0;
@@ -256,13 +258,16 @@ export class MetricsTracker {
 
     const total = totalTokens(tokens);
     const s = this.state(sessionID);
+    const cacheRead = safe(tokens?.cache?.read);
     s.cumulativeUsage += total;
-    s.cacheRead = safe(tokens?.cache?.read);
+    s.cacheRead = cacheRead;
     s.cacheWrite = safe(tokens?.cache?.write);
-    // Context size = prompt/input tokens only: output/reasoning are generated,
-    // and cache read/write are already included in `input`.
+    // Context size = prompt/input tokens PLUS cached reads: output and
+    // reasoning are generated (not context), but DeepSeek reports the cached
+    // prompt prefix separately from `input`, so `input` alone under-counts the
+    // real context by the cached portion.
     const input = safe(tokens?.input);
-    if (input > 0) s.contextUsage = input;
+    if (input + cacheRead > 0) s.contextUsage = input + cacheRead;
     return true;
   }
 
@@ -274,9 +279,10 @@ export class MetricsTracker {
   onAssistantMessage(sessionID: string, tokens: UsageTokens | undefined): void {
     if (!tokens) return;
     const s = this.state(sessionID);
-    s.cacheRead = safe(tokens.cache?.read);
+    const cacheRead = safe(tokens.cache?.read);
+    s.cacheRead = cacheRead;
     s.cacheWrite = safe(tokens.cache?.write);
     const input = safe(tokens.input);
-    if (input > 0) s.contextUsage = input;
+    if (input + cacheRead > 0) s.contextUsage = input + cacheRead;
   }
 }
