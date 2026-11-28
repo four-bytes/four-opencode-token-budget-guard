@@ -1,5 +1,12 @@
 # Project Change History
 
+## v0.6.14 — 2026-11-28
+
+### Changed
+- Warning debounce now uses `createThrottle` from `@four-bytes/opencode-plugin-lib`
+  (bumped to v0.11.0) instead of a local `Map`; behaviour unchanged — 60 s per
+  session+level (#103).
+
 ## v0.6.12 — 2026-11-23
 
 ### Fixed
