@@ -9,6 +9,7 @@ import {
 } from "./compaction-trigger.js";
 import { TokenBudgetExceededError } from "./errors.js";
 import { logDebugEvent } from "./debug-logger.js";
+import { createThrottle } from "@four-bytes/opencode-plugin-lib";
 import {
   runPolicyLoop,
   loadPolicyConfig,
@@ -106,15 +107,12 @@ export const FourTokenBudgetGuardPlugin: Plugin = async (ctx) => {
 
   // ── Debounce state ─────────────────────────────────────
   // Warnings: per session+level (60 s).
-  const warnState = new Map<string, number>();
+  const warnThrottle = createThrottle();
   // Diary: per session, throttled by time AND budget-basis change.
   const diaryState = new Map<string, { ts: number; tokens: number }>();
 
   function shouldWarn(key: string, intervalMs = WARN_INTERVAL_MS): boolean {
-    const last = warnState.get(key) ?? 0;
-    if (Date.now() - last < intervalMs) return false;
-    warnState.set(key, Date.now());
-    return true;
+    return warnThrottle.allow(key, { intervalMs });
   }
 
   function safeToast(body: {
